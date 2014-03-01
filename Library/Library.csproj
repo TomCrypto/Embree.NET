@@ -16,7 +16,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\x86</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
+    <DefineConstants>DEBUG;X86;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
@@ -35,12 +35,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentation>true</GenerateDocumentation>
     <PlatformTarget>x86</PlatformTarget>
+    <DefineConstants>X86;</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug (x64)|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\x64</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
+    <DefineConstants>DEBUG;X64;</DefineConstants>
     <WarningLevel>4</WarningLevel>
     <GenerateDocumentation>true</GenerateDocumentation>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -55,6 +56,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoWarn>1591</NoWarn>
     <PlatformTarget>x64</PlatformTarget>
+    <DefineConstants>X64;</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />

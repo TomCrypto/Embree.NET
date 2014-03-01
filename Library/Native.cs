@@ -27,43 +27,6 @@ namespace Embree
         /* Searches embree.dll, libembree.so. */
         private const String DLLName = "embree";
 
-#if false
-
-        /// <summary>
-        /// Represents a size_t equivalent for interop.
-        /// </summary>
-        public struct SizeInt : IComparable, IComparable<SizeInt>, IEquatable<SizeInt>, IConvertible, ValueType
-        {
-            private readonly UIntPtr x;
-
-            public SizeInt(UIntPtr x)
-            {
-                this.x = x;
-            }
-
-            public static implicit operator UIntPtr(int x)
-            {
-                return new SizeInt((UIntPtr)x);
-            }
-
-            public static implicit operator UIntPtr(uint x)
-            {
-                return new SizeInt((UIntPtr)x);
-            }
-
-            public static implicit operator int(UIntPtr x)
-            {
-                return x.;
-            }
-
-            public static SizeInt operator+(SizeInt a, SizeInt b)
-            {
-                return 
-            }
-        }
-
-#endif
-
         #endregion
 
         #region Error Handling
@@ -196,7 +159,11 @@ namespace Embree
         /// Creates a new triangle mesh. 
         /// </summary>
         [DllImport(DLLName, EntryPoint="rtcNewTriangleMesh")]
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, IntPtr numTriangles, IntPtr numVertices, IntPtr numTimeSteps);
+        #if X86
+        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps);
+        #else
+        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, long numTriangles, long numVertices, long numTimeSteps);
+        #endif
 
         /// <summary>
         /// Maps specified buffer.

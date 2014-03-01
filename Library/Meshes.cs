@@ -23,7 +23,7 @@ namespace Embree
     {
         private readonly IList<Int32> indices;
         private readonly IList<IEmbreePoint> vertices;
-        private readonly long triangleCount, vertexCount;
+        private readonly int triangleCount, vertexCount;
 
         /// <summary>
         /// Gets the index buffer.
@@ -55,7 +55,7 @@ namespace Embree
 
         public uint Add(IntPtr scenePtr)
         {
-            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, new IntPtr(triangleCount), new IntPtr(vertexCount), new IntPtr(1));
+            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, triangleCount, vertexCount, 1);
             RTC.CheckLastError();
             return meshID;
         }
@@ -109,7 +109,7 @@ namespace Embree
         private readonly IList<Int32> indices;
         private readonly IList<IEmbreePoint> vertices0;
         private readonly IList<IEmbreePoint> vertices1;
-        private readonly long triangleCount, vertexCount;
+        private readonly int triangleCount, vertexCount;
 
         /// <summary>
         /// Gets the index buffer.
@@ -151,7 +151,7 @@ namespace Embree
 
         public uint Add(IntPtr scenePtr)
         {
-            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, new IntPtr(triangleCount), new IntPtr(vertexCount), new IntPtr(2));
+            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, triangleCount, vertexCount, 2);
             RTC.CheckLastError();
             return meshID;
         }
