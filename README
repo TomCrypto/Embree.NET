@@ -1,0 +1,57 @@
+                                   Embree.NET                                   
+                                   ==========                                   
+
+Embree.NET is the unofficial C# wrapper for the Embree collection of ray tracing
+kernels, and runs under the .NET and Mono runtimes in both 32- and 64-bit modes.
+
+ ===== Introduction ===========================================================
+
+Embree.NET implements the concept of scenes, geometries, meshes and instances in
+an OOP fashion, building on top of Embree's interface and adding various runtime
+and type checks to make the library as easy and fun to use as possible from C#.
+
+Embree.NET provides the back-end to a renderer, by providing an abstraction of a
+scene, composed of one or more instances of "geometries" (which are themselves a
+collection of meshes). We suggest using composition to "wrap" geometry instances
+over your own "model" or "object" type which can then provide functionality such
+as per-mesh materials, textures, and so on - because the wrapper is designed for
+this kind of interop, you are able (after some minor work) to seamlessly use any
+classes you may have already written with Embree.NET, fluently and elegantly.
+
+A sample renderer is provided with the wrapper, and shows the main ideas used by
+the API and how to use the wrapper in your code. It does not demonstrate all the
+features of the wrapper, however, and must primarily be used to "get a feel" for
+the wrapper and how it works. Note the sample may change considerably over time.
+
+ ===== Features (as of Embree 2.2) ============================================
+
+  [x] Geometry instancing
+      - supported natively and actually part of how the wrapper is designed;
+      - for consistency, the wrapper does not support non-instanced geometry
+        (i.e. the topmost scene contains only instanced geometry), where the
+        Embree library does - we do not expect this to be a problem;
+
+  [x] Linear motion blur (t = [0, 1])
+      - supported, and the wrapper allows per-ray time values;
+
+  [x] Packet ray tracing (1, 4, 8, 16 rays)
+      - fully supported by the wrapper, however because Embree does not warn
+        about unsupported CPU's (for instance, using 16-ray packet mode when
+        you do not have a Xeon processor) we cannot reliably check for error
+        conditions such as these, and expect this to be fixed eventually;
+
+  [ ] Buffer sharing
+      - not supported at this time;
+
+  [ ] User-defined geometry
+      - not supported at this time;
+
+  [ ] Filter functions
+      - not supported at this time;
+
+As usual, any and all contributions are welcome!
+
+ ===== Legal ==================================================================
+
+The Embree library can be found at http://embree.github.io/. This product is not
+affiliated with or endorsed by Intel(R) Corporation. Refer to the LICENSE file.
