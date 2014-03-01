@@ -1,6 +1,10 @@
-// disable checks: optimal performance but
-// may lead to segmentation fault on error
-#define EMBREE_CHECKING
+/* Embree.NET
+ * ==========
+ * 
+ * The wrapper's API. Note some checking is only
+ * available in debug mode, for efficiency, this
+ * means release binaries may segfault on error.
+*/
 
 using System;
 using System.Linq;
@@ -11,319 +15,6 @@ using System.Runtime.InteropServices;
 
 namespace Embree
 {
-    #region Geometry Interop Layer
-
-    /// <summary>
-    /// Your vector class should implement this interface.
-    /// </summary>
-    public interface IEmbreeVector
-    {
-        float X { get; }
-        float Y { get; }
-        float Z { get; }
-    }
-
-    /// <summary>
-    /// Your point class should implement this interface.
-    /// </summary>
-    public interface IEmbreePoint
-    {
-        float X { get; }
-        float Y { get; }
-        float Z { get; }
-    }
-
-    /// <summary>
-    /// Your ray class should implement this interface.
-    /// </summary>
-    public interface IEmbreeRay
-    {
-        /// <summary>
-        /// Gets the origin of the ray.
-        /// </summary>
-        IEmbreePoint Origin { get; }
-
-        /// <summary>
-        /// Gets the (normalized) direction of the ray.
-        /// </summary>
-        IEmbreeVector Direction { get; }
-    }
-
-    /// <summary>
-    /// Your matrix class should implement this interface.
-    /// </summary>
-    public interface IEmbreeMatrix
-    {
-        /// <summary>
-        /// Gets the x-axis basis vector.
-        /// </summary>
-        IEmbreeVector U { get; }
-
-        /// <summary>
-        /// Gets the y-axis basis vector.
-        /// </summary>
-        IEmbreeVector V { get; }
-
-        /// <summary>
-        /// Gets the z-axis basis vector.
-        /// </summary>
-        IEmbreeVector W { get; }
-
-        /// <summary>
-        /// Gets the translation vector.
-        /// </summary>
-        IEmbreeVector T { get; }
-    }
-
-    #endregion
-
-    #region Enumerations
-
-    /// <summary>
-    /// Scene utilization flags.
-    /// </summary>
-    [Flags]
-    public enum SceneFlags
-    {
-        /// <summary>
-        /// The scene will be static.
-        /// </summary>
-        Static = 0 << 0,
-
-        /// <summary>
-        /// The scene will be dynamic.
-        /// </summary>
-        Dynamic = 1 << 0,
-
-        /// <summary>
-        /// Optimize for memory usage.
-        /// </summary>
-        Compact = 1 << 8,
-
-        /// <summary>
-        /// Optimize for coherent rays.
-        /// </summary>
-        Coherent = 1 << 9,
-
-        /// <summary>
-        /// Optimize for incoherent rays.
-        /// </summary>
-        Incoherent = 1 << 10,
-
-        /// <summary>
-        /// Optimize for quality.
-        /// </summary>
-        HighQuality = 1 << 11,
-
-        /// <summary>
-        /// Optimize for robustness.
-        /// </summary>
-        Robust = 1 << 16
-    }
-
-    /// <summary>
-    /// Traversal flags.
-    /// </summary>
-    [Flags]
-    public enum TraversalFlags
-    {
-        /// <summary>
-        /// Enable single-ray traversal.
-        /// </summary>
-        Single = 1 << 0,
-
-        /// <summary>
-        /// Enable 4-ray packet traversal.
-        /// </summary>
-        Packet4 = 1 << 1,
-
-        /// <summary>
-        /// Enable 8-ray packet traversal.
-        /// </summary>
-        Packet8 = 1 << 2,
-
-        /// <summary>
-        /// Enable 16-ray packet traversal.
-        /// </summary>
-        Packet16 = 1 << 3,
-    }
-
-    /// <summary>
-    /// Mesh handling flags.
-    /// </summary>
-    [Flags]
-    public enum MeshFlags
-    {
-        /// <summary>
-        /// The mesh is static.
-        /// </summary>
-        Static = 0,
-
-        /// <summary>
-        /// The mesh is deformable.
-        /// </summary>
-        Deformable = 1,
-
-        /// <summary>
-        /// The mesh is dynamic.
-        /// </summary>
-        Dynamic = 2
-    }
-
-    #endregion
-
-    #region Ray Tracing Structures
-
-    /// <summary>
-    /// Defines a ray-scene traversal.
-    /// </summary>
-    public struct Traversal
-    {
-        private readonly float time, near, far;
-        private readonly IEmbreeRay ray;
-        private readonly bool active;
-
-        /// <summary>
-        /// Gets the traversal time (between 0 and 1).
-        /// </summary>
-        public float Time { get { return time; } }
-
-        /// <summary>
-        /// Gets the near traversal bound.
-        /// </summary>
-        public float Near { get { return near; } }
-
-        /// <summary>
-        /// Gets the far traversal bound.
-        /// </summary>
-        public float Far { get { return far; } }
-
-        /// <summary>
-        /// Gets the ray to traverse the scene with.
-        /// </summary>
-        public IEmbreeRay Ray { get { return ray; } }
-
-        /// <summary>
-        /// Gets whether this traversal is active.
-        /// </summary>
-        public bool Active { get { return active; } }
-
-        /// <summary>
-        /// Creates a new traversal from a ray, near/far planes, and a traversal time.
-        /// </summary>
-        public Traversal(IEmbreeRay ray, float near = 0, float far = float.PositiveInfinity, float time = 0, bool active = true)
-        {
-            if (near < 0)
-                throw new ArgumentOutOfRangeException("Near bound must be nonnegative");
-
-            if (time < 0 || time > 1)
-                throw new ArgumentOutOfRangeException("Time must be between zero and one");
-
-            this.active = active;
-            this.time   = time;
-            this.near   = near;
-            this.far    = far;
-            this.ray    = ray;
-        }
-
-        /// <summary>
-        /// Creates a new inactive traversal (will be ignored).
-        /// </summary>
-        public static Traversal Inactive
-        {
-            get { return new Traversal(default(IEmbreeRay), 0, float.PositiveInfinity, 0, false); }
-        }
-    }
-
-    public struct Intersection<T> where T : IInstance
-    {
-        private readonly float tfar, u, v, nx, ny, nz;
-        private readonly IMesh geomID;
-        private readonly uint primID;
-        private readonly T instID;
-
-        /// <summary>
-        /// Gets the intersection distance from the ray origin.
-        /// </summary>
-        public float Distance { get { return tfar; } }
-
-        /// <summary>
-        /// Gets the index of the primitive intersected (e.g. nth triangle).
-        /// </summary>
-        public uint Primitive { get { return primID; } }
-
-        /// <summary>
-        /// Gets the identifier of the instance intersected.
-        /// </summary>
-        public T Instance { get { return instID; } }
-
-        /// <summary>
-        /// Gets the identifier of the mesh intersected.
-        /// </summary>
-        public IMesh Mesh { get { return geomID; } }
-
-        /// <summary>
-        /// Gets the barycentric u-coordinate of the intersection point.
-        /// </summary>
-        public float U { get { return u; } }
-
-        /// <summary>
-        /// Gets the barycentric v-coordinate of the intersection point.
-        /// </summary>
-        public float V { get { return v; } }
-
-        /// <summary>
-        /// Gets the x-coordinate of the raw surface normal.
-        /// </summary>
-        public float NX { get { return nx; } }
-
-        /// <summary>
-        /// Gets the y-coordinate of the raw surface normal.
-        /// </summary>
-        public float NY { get { return ny; } }
-
-        /// <summary>
-        /// Gets the z-coordinate of the raw surface normal.
-        /// </summary>
-        public float NZ { get { return nz; } }
-
-        /// <summary>
-        /// Gets whether there exists a ray-scene intersection.
-        /// </summary>
-        /// <remarks>
-        /// If this is false, all other fields are undefined.
-        /// </remarks>
-        public Boolean HasHit { get { return geomID != null; } }
-
-        /// <summary>
-        /// Creates a new intersection.
-        /// </summary>
-        public Intersection(uint primID, IMesh geomID, T instID, float tfar, float u, float v, float nx, float ny, float nz)
-        {
-            this.primID = primID;
-            this.geomID = geomID;
-            this.instID = instID;
-            this.tfar   = tfar;
-            this.u      = u;
-            this.v      = v;
-            this.nx     = nx;
-            this.ny     = ny;
-            this.nz     = nz;
-        }
-
-        /// <summary>
-        /// Represents no intersection.
-        /// </summary>
-        public static Intersection<T> None
-        {
-            get { return default(Intersection<T>); }
-        }
-    }
-
-    #endregion
-
-    #region Scene API
-
     /// <summary>
     /// All mesh types implement this interface.
     /// </summary>
@@ -626,7 +317,7 @@ namespace Embree
         /// </summary>
         public Boolean Occludes(Traversal traversal)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Single))
                 throw new InvalidOperationException("Traversal flags forbid single-ray traversal");
             #endif
@@ -639,7 +330,7 @@ namespace Embree
         /// </summary>
         public Boolean[] Occludes4(Traversal[] traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet4))
                 throw new InvalidOperationException("Traversal flags forbid 4-ray packet traversal");
             #endif
@@ -652,7 +343,7 @@ namespace Embree
         /// </summary>
         public Boolean[] Occludes8<T>(Traversal[] traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet8))
                 throw new InvalidOperationException("Traversal flags forbid 8-ray packet traversal");
             #endif
@@ -665,7 +356,7 @@ namespace Embree
         /// </summary>
         public Boolean[] Occludes16(Traversal[] traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet16))
                 throw new InvalidOperationException("Traversal flags forbid 16-ray packet traversal");
             #endif
@@ -678,7 +369,7 @@ namespace Embree
         /// </summary>
         public Intersection<Instance> Intersects(Traversal traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Single))
                 throw new InvalidOperationException("Traversal flags forbid single-ray traversal");
             #endif
@@ -697,7 +388,7 @@ namespace Embree
         /// </summary>
         public unsafe Intersection<Instance>[] Intersects4(Traversal[] traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet4))
                 throw new InvalidOperationException("Traversal flags forbid 4-ray packet traversal");
             #endif
@@ -722,7 +413,7 @@ namespace Embree
         /// </summary>
         public unsafe Intersection<Instance>[] Intersects8(Traversal[] traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet8))
                 throw new InvalidOperationException("Traversal flags forbid 8-ray packet traversal");
             #endif
@@ -747,7 +438,7 @@ namespace Embree
         /// </summary>
         public unsafe Intersection<Instance>[] Intersects16(Traversal[] traversals)
         {
-            #if !EMBREE_CHECKING
+            #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet16))
                 throw new InvalidOperationException("Traversal flags forbid 16-ray packet traversal");
             #endif
@@ -819,210 +510,4 @@ namespace Embree
 
         #endregion
     }
-
-    #endregion
-
-    #region Built-in Mesh Types
-
-    /// <summary>
-    /// Represents a simple triangle mesh.
-    /// </summary>
-    public class TriangleMesh : IMesh
-    {
-        private readonly IList<Int32> indices;
-        private readonly IList<IEmbreePoint> vertices;
-        private readonly long triangleCount, vertexCount;
-
-        /// <summary>
-        /// Gets the index buffer.
-        /// </summary>
-        public IList<Int32> Indices { get { return indices; } }
-
-        /// <summary>
-        /// Gets the vertex buffer.
-        /// </summary>
-        public IList<IEmbreePoint> Vertices { get { return vertices; } }
-
-        /// <summary>
-        /// Creates a new mesh from index and vertex buffers.
-        /// </summary>
-        public TriangleMesh(IList<Int32> indices, IList<IEmbreePoint> vertices)
-        {
-            this.indices = indices;
-            this.vertices = vertices;
-            this.vertexCount = vertices.Count();
-            this.triangleCount = indices.Count() / 3;
-            RTC.CheckLastError();
-
-            if (vertexCount == 0)
-                throw new ArgumentOutOfRangeException("No vertices in mesh");
-
-            if (triangleCount == 0)
-                throw new ArgumentOutOfRangeException("No triangles in mesh");
-        }
-
-        public uint Add(IntPtr scenePtr)
-        {
-            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, new IntPtr(triangleCount), new IntPtr(vertexCount), new IntPtr(1));
-            RTC.CheckLastError();
-            return meshID;
-        }
-
-        public void Update(uint geomID, IntPtr scenePtr)
-        {
-            if (indices.Count() / 3 == triangleCount)
-            {
-                var indexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.IndexBuffer);
-                RTC.CheckLastError();
-
-                Marshal.Copy(indices.ToArray(), 0, indexBuffer, indices.Count());
-
-                RTC.UnmapBuffer(scenePtr, geomID, RTC.BufferType.IndexBuffer);
-            }
-            else
-                throw new InvalidOperationException("Index buffer length was changed.");
-
-            if (vertices.Count() == vertexCount)
-            {
-                var vertexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer);
-                RTC.CheckLastError();
-
-                unsafe
-                {
-                    float* ptr = (float*)vertexBuffer;
-                    foreach (var vertex in vertices)
-                    {
-                        *(ptr++) = vertex.X;
-                        *(ptr++) = vertex.Y;
-                        *(ptr++) = vertex.Z;
-                        *(ptr++) = 1.0f;
-                    }
-                }
-
-                RTC.UnmapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer);
-            }
-            else
-                throw new InvalidOperationException("Vertex buffer length was changed.");
-        }
-    }
-
-    /// <summary>
-    /// Represents a triangle mesh with linear motion blur.
-    /// </summary>
-    /// <remarks>
-    /// Work in progress.
-    /// </remarks>
-    public class TriangleMeshMotion : IMesh
-    {
-        private readonly IList<Int32> indices;
-        private readonly IList<IEmbreePoint> vertices0;
-        private readonly IList<IEmbreePoint> vertices1;
-        private readonly long triangleCount, vertexCount;
-
-        /// <summary>
-        /// Gets the index buffer.
-        /// </summary>
-        public IList<Int32> Indices { get { return indices; } }
-
-        /// <summary>
-        /// Gets the vertex buffer at time t = 0.
-        /// </summary>
-        public IList<IEmbreePoint> Vertices0 { get { return vertices0; } }
-
-        /// <summary>
-        /// Gets the vertex buffer at time t = 1.
-        /// </summary>
-        public IList<IEmbreePoint> Vertices1 { get { return vertices1; } }
-
-        /// <summary>
-        /// Creates a new mesh from index and vertex buffers.
-        /// </summary>
-        public TriangleMeshMotion(IList<Int32> indices, IList<IEmbreePoint> vertices0, IList<IEmbreePoint> vertices1)
-        {
-            if (vertices0.Count != vertices1.Count)
-                throw new ArgumentException("Both vertex buffers must have the same length");
-
-            RTC.Register();
-
-            this.indices = indices;
-            this.vertices0 = vertices0;
-            this.vertices1 = vertices1;
-            this.vertexCount = vertices0.Count();
-            this.triangleCount = indices.Count() / 3;
-
-            if (vertexCount == 0)
-                throw new ArgumentOutOfRangeException("No vertices in mesh");
-
-            if (triangleCount == 0)
-                throw new ArgumentOutOfRangeException("No triangles in mesh");
-        }
-
-        public uint Add(IntPtr scenePtr)
-        {
-            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, new IntPtr(triangleCount), new IntPtr(vertexCount), new IntPtr(2));
-            RTC.CheckLastError();
-            return meshID;
-        }
-
-        public void Update(uint geomID, IntPtr scenePtr)
-        {
-            if (indices.Count() / 3 == triangleCount)
-            {
-                var indexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.IndexBuffer);
-                RTC.CheckLastError();
-
-                Marshal.Copy(indices.ToArray(), 0, indexBuffer, indices.Count());
-
-                RTC.UnmapBuffer(scenePtr, geomID, RTC.BufferType.IndexBuffer);
-            }
-            else
-                throw new InvalidOperationException("Index buffer length was changed.");
-
-            if (vertices0.Count() == vertexCount)
-            {
-                var vertexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer0);
-                RTC.CheckLastError();
-
-                unsafe
-                {
-                    float* ptr = (float*)vertexBuffer;
-                    foreach (var vertex in vertices0)
-                    {
-                        *(ptr++) = vertex.X;
-                        *(ptr++) = vertex.Y;
-                        *(ptr++) = vertex.Z;
-                        *(ptr++) = 1.0f;
-                    }
-                }
-
-                RTC.UnmapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer0);
-            }
-            else
-                throw new InvalidOperationException("Vertex buffer 0 length was changed.");
-
-            if (vertices1.Count() == vertexCount)
-            {
-                var vertexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer1);
-                RTC.CheckLastError();
-
-                unsafe
-                {
-                    float* ptr = (float*)vertexBuffer;
-                    foreach (var vertex in vertices1)
-                    {
-                        *(ptr++) = vertex.X;
-                        *(ptr++) = vertex.Y;
-                        *(ptr++) = vertex.Z;
-                        *(ptr++) = 1.0f;
-                    }
-                }
-
-                RTC.UnmapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer1);
-            }
-            else
-                throw new InvalidOperationException("Vertex buffer 1 length was changed.");
-        }
-    }
-
-    #endregion
 }
