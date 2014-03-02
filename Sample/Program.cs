@@ -59,7 +59,7 @@ namespace Sample
         /// <summary>
         /// Gets the transform associated with this model.
         /// </summary>
-        public IEmbreeMatrix Transform { get { return transform; } set { transform = (Matrix)value; inverseTranspose = transform.InverseTranspose(); } }
+        public IEmbreeMatrix Transform { get { return transform; } }
 
         /// <summary>
         /// Creates a new empty model.
@@ -87,10 +87,7 @@ namespace Sample
         /// </summary>
         public Vector CorrectNormal(Vector normal)
         {
-            // Negate because our models have inverted normals
-            // (normally, this should be done within a content
-            // pipeline, and is very important for refraction)
-            return -(inverseTranspose * normal).Normalize();
+            return (inverseTranspose * normal).Normalize();
         }
 
         #region IDisposable
@@ -156,6 +153,10 @@ namespace Sample
                                                      Matrix.Rotation(0, (float)Math.PI / 2 + 2.1f, 0),
                                                      Matrix.Translation(new Vector(-11, -1.56f, -5))));
 
+            var lucyModel2 = new Model(Matrix.Combine(Matrix.Scaling(1.0f / 600),
+                                                      Matrix.Rotation(0, (float)Math.PI / 2 - 1.8f, 0),
+                                                      Matrix.Translation(new Vector(-2.5f, -3.98f, -8))));
+
             var groundModel = new Model(Matrix.Combine(Matrix.Scaling(100),
                                                        Matrix.Translation(new Vector(0, -5, 0))));
 
@@ -164,11 +165,13 @@ namespace Sample
             buddhaModel.AddMesh(meshes["buddha"], new Phong(new Vector(0.55f, 0.25f, 0.40f), 0.65f, 48));
             lucyModel.AddMesh(meshes["lucy"], new Phong(new Vector(0.35f, 0.65f, 0.15f), 0.85f, 256));
             groundModel.AddMesh(meshes["ground"], new Phong(new Vector(0.25f, 0.25f, 0.95f), 0.45f, 1024));
+            lucyModel2.AddMesh(meshes["lucy"], new Diffuse(new Vector(0.95f, 0.85f, 0.05f) * 0.318f)); // instancing example
 
             // And finally add them to the scene (into the world)
 
             scene.Add(buddhaModel);
             scene.Add(lucyModel);
+            scene.Add(lucyModel2);
             scene.Add(groundModel);
 
             // Don't forget to commit when we're done messing with the geometry
@@ -183,7 +186,7 @@ namespace Sample
             // Get a good shot of the world
 
             camera = new Camera((float)Math.PI / 5, 1,    // unknown aspect ratio for now
-                                new Point(-2.5f, -0.45f, -12), // a good position for the camera
+                                new Point(-2.5f, -0.45f, -12), // good position for the camera
                                 new Vector(0, 0, 1), 0);  // view direction + no roll (upright)
         }
 
@@ -195,7 +198,8 @@ namespace Sample
             float dx = 1.0f / pixbuf.Width, dy = 1.0f / pixbuf.Height;
             camera.AspectRatio = (float)pixbuf.Width / pixbuf.Height;
 
-            // Free parallelism, why not!
+            // Free parallelism, why not! Note a Parallel.For loop
+            // over each row is slightly faster but less readable.
             Parallel.ForEach(pixbuf, (pixel) =>
             {
                 var color = Vector.Zero;
@@ -217,11 +221,10 @@ namespace Sample
                 {
                     if (hits[t].HasHit)
                     {
-                        var ray = (Ray)traversals[t].Ray;
-
-                        // Find the Model instance which was hit
-                        var model = hits[t].Instance;
                         color += new Vector(0.1f, 0.1f, 0.1f);
+
+                        var ray = (Ray)traversals[t].Ray;
+                        var model = hits[t].Instance;
 
                         // Parse the surface normal returned and then process it manually
                         var rawNormal = new Vector(hits[t].NX, hits[t].NY, hits[t].NZ);

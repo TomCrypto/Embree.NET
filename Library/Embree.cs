@@ -3,7 +3,7 @@
  * 
  * The wrapper's API. Note some checking is only
  * available in debug mode, for efficiency, this
- * means release binaries may segfault on error->
+ * means release binaries may segfault on error.
 */
 
 using System;
@@ -119,7 +119,7 @@ namespace Embree
         }
 
         /// <summary>
-        /// Gets the Embree scene pointer->
+        /// Gets the Embree scene pointer.
         /// </summary>
         internal IntPtr EmbreePointer { get { return scenePtr; } }
 

@@ -3,7 +3,7 @@
  * 
  * This file defines the RTC static class, which
  * contains the Embree native API, some helpers,
- * and the infamous RayInterop class which tries
+ * and the dreadful RayInterop class which tries
  * to convert back and forth from the Embree ray
  * representation as efficiently as possible.
 */

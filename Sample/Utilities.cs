@@ -299,8 +299,8 @@ namespace Sample
                         break;
                     case "f":
                         indices.Add(int.Parse(tokens[1]) - 1);
-                        indices.Add(int.Parse(tokens[2]) - 1);
                         indices.Add(int.Parse(tokens[3]) - 1);
+                        indices.Add(int.Parse(tokens[2]) - 1);
                         break;
                 }
             }

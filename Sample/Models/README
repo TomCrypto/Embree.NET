@@ -1,0 +1,3 @@
+Models in this folder come from the Stanford University 3D Scanning Repository,
+and have been slightly altered with the MeshLab tool, to make them suitable for
+use in this sample. Refer to https://graphics.stanford.edu/data/3Dscanrep/.
