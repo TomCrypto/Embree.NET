@@ -391,22 +391,27 @@ namespace Embree
 
             #region Ray Structure Conversions
 
-            private static void PrepareActivityFlags()
+            /// <summary>
+            /// Allocates memory aligned to a specific boundary.
+            /// </summary>
+            private static void* Align(Type type, int alignment)
             {
-                if (activity == null)
-                {
-                    activity = (uint*)Marshal.AllocHGlobal(sizeof(uint) * 16 + 63);
-                    while ((long)activity % 16 != 0) activity = (uint*)((byte*)activity + 1);
-                }
+                byte* ptr = (byte*)Marshal.AllocHGlobal(Marshal.SizeOf(type) + alignment - 1);
+                while ((long)ptr % alignment != 0) ptr++;
+                return (void*)ptr;
             }
 
             private static void EncodeRayPacket1(Traversal ray)
             {
+                #region Setup
+
                 if (rayPacket1 == null)
-                {
-                    rayPacket1 = (RayPacket1*)Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RayPacket1)) + 15);
-                    while ((long)rayPacket1 % 16 != 0) rayPacket1 = (RayPacket1*)((byte*)rayPacket1 + 1);
-                }
+                    rayPacket1 = (RayPacket1*)Align(typeof(RayPacket1), 16);
+
+                if (activity == null)
+                    activity = (uint*)Align(typeof(uint), 64);
+
+                #endregion
 
                 rayPacket1->orgX = ray.Ray.Origin.X;
                 rayPacket1->orgY = ray.Ray.Origin.Y;
@@ -428,13 +433,15 @@ namespace Embree
 
             private static void EncodeRayPacket4(Traversal[] rays)
             {
-                if (rayPacket4 == null)
-                {
-                    rayPacket4 = (RayPacket4*)Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RayPacket4)) + 15);
-                    while ((long)rayPacket4 % 16 != 0) rayPacket4 = (RayPacket4*)((byte*)rayPacket4 + 1);
-                }
+                #region Setup
 
-                PrepareActivityFlags();
+                if (rayPacket4 == null)
+                    rayPacket4 = (RayPacket4*)Align(typeof(RayPacket4), 16);
+
+                if (activity == null)
+                    activity = (uint*)Align(typeof(uint), 64);
+
+                #endregion
 
                 for (int t = 0; t < 4; ++t)
                 {
@@ -464,13 +471,15 @@ namespace Embree
 
             private static void EncodeRayPacket8(Traversal[] rays)
             {
-                if (rayPacket8 == null)
-                {
-                    rayPacket8 = (RayPacket8*)Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RayPacket8)) + 31);
-                    while ((long)rayPacket8 % 32 != 0) rayPacket8 = (RayPacket8*)((byte*)rayPacket8 + 1);
-                }
+                #region Setup
 
-                PrepareActivityFlags();
+                if (rayPacket8 == null)
+                    rayPacket8 = (RayPacket8*)Align(typeof(RayPacket8), 32);
+
+                if (activity == null)
+                    activity = (uint*)Align(typeof(uint), 64);
+
+                #endregion
 
                 for (int t = 0; t < 8; ++t)
                 {
@@ -500,13 +509,15 @@ namespace Embree
 
             private static void EncodeRayPacket16(Traversal[] rays)
             {
-                if (rayPacket16 == null)
-                {
-                    rayPacket16 = (RayPacket16*)Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RayPacket16)) + 31);
-                    while ((long)rayPacket16 % 64 != 0) rayPacket16 = (RayPacket16*)((byte*)rayPacket16 + 1);
-                }
+                #region Setup
 
-                PrepareActivityFlags();
+                if (rayPacket16 == null)
+                    rayPacket16 = (RayPacket16*)Align(typeof(RayPacket16), 64);
+
+                if (activity == null)
+                    activity = (uint*)Align(typeof(uint), 64);
+
+                #endregion
 
                 for (int t = 0; t < 16; ++t)
                 {
@@ -536,98 +547,60 @@ namespace Embree
 
             #endregion
 
-            public static Boolean OcclusionTest1(IntPtr scene, Traversal ray)
+            public static RayPacket1* OcclusionTest1(IntPtr scene, Traversal ray)
             {
                 EncodeRayPacket1(ray);
                 Occluded1(scene, rayPacket1);
-
-                return rayPacket1->geomID == 0;
+                return rayPacket1;
             }
 
-            public static Boolean[] OcclusionTest4(IntPtr scene, Traversal[] rays)
+            public static RayPacket4* OcclusionTest4(IntPtr scene, Traversal[] rays)
             {
                 EncodeRayPacket4(rays);
                 Occluded4(activity, scene, rayPacket4);
-
-                return new[]
-                {
-                    rayPacket4->geomID[0] == 0,
-                    rayPacket4->geomID[1] == 0,
-                    rayPacket4->geomID[2] == 0,
-                    rayPacket4->geomID[3] == 0,
-                };
+                return rayPacket4;
             }
 
-            public static Boolean[] OcclusionTest8(IntPtr scene, Traversal[] rays)
+            public static RayPacket8* OcclusionTest8(IntPtr scene, Traversal[] rays)
             {
                 EncodeRayPacket8(rays);
                 Occluded8(activity, scene, rayPacket8);
-
-                return new[]
-                {
-                    rayPacket8->geomID[0] == 0,
-                    rayPacket8->geomID[1] == 0,
-                    rayPacket8->geomID[2] == 0,
-                    rayPacket8->geomID[3] == 0,
-                    rayPacket8->geomID[4] == 0,
-                    rayPacket8->geomID[5] == 0,
-                    rayPacket8->geomID[6] == 0,
-                    rayPacket8->geomID[7] == 0,
-                };
+                return rayPacket8;
             }
 
-            public static Boolean[] OcclusionTest16(IntPtr scene, Traversal[] rays)
+            public static RayPacket16* OcclusionTest16(IntPtr scene, Traversal[] rays)
             {
                 EncodeRayPacket16(rays);
                 Occluded16(activity, scene, rayPacket16);
-
-                return new[]
-                {
-                    rayPacket16->geomID[ 0] == 0,
-                    rayPacket16->geomID[ 1] == 0,
-                    rayPacket16->geomID[ 2] == 0,
-                    rayPacket16->geomID[ 3] == 0,
-                    rayPacket16->geomID[ 4] == 0,
-                    rayPacket16->geomID[ 5] == 0,
-                    rayPacket16->geomID[ 6] == 0,
-                    rayPacket16->geomID[ 7] == 0,
-                    rayPacket16->geomID[ 8] == 0,
-                    rayPacket16->geomID[ 9] == 0,
-                    rayPacket16->geomID[10] == 0,
-                    rayPacket16->geomID[11] == 0,
-                    rayPacket16->geomID[12] == 0,
-                    rayPacket16->geomID[13] == 0,
-                    rayPacket16->geomID[14] == 0,
-                    rayPacket16->geomID[15] == 0,
-                };
+                return rayPacket16;
             }
 
-            public static RayPacket1 Intersection1(IntPtr scene, Traversal ray)
+            public static RayPacket1* Intersection1(IntPtr scene, Traversal ray)
             {
                 EncodeRayPacket1(ray);
                 Intersect1(scene, rayPacket1);
-                return *rayPacket1;
+                return rayPacket1;
             }
 
-            public static RayPacket4 Intersection4(IntPtr scene, Traversal[] rays)
+            public static RayPacket4* Intersection4(IntPtr scene, Traversal[] rays)
             {
                 EncodeRayPacket4(rays);
                 Intersect4(activity, scene, rayPacket4);
-                return *rayPacket4;
+                return rayPacket4;
             }
 
-            public static RayPacket8 Intersection8(IntPtr scene, Traversal[] rays)
+            public static RayPacket8* Intersection8(IntPtr scene, Traversal[] rays)
             {
                 EncodeRayPacket8(rays);
                 Intersect8(activity, scene, rayPacket8);
-                return *rayPacket8;
+                return rayPacket8;
             }
 
-            public static RayPacket16 Intersection16(IntPtr scene, Traversal[] rays)
+            public static RayPacket16* Intersection16(IntPtr scene, Traversal[] rays)
             {
                 EncodeRayPacket16(rays);
                 Intersect16(activity, scene, rayPacket16);
-                return *rayPacket16;
+                return rayPacket16;
             }
         }
 

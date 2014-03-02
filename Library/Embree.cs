@@ -3,7 +3,7 @@
  * 
  * The wrapper's API. Note some checking is only
  * available in debug mode, for efficiency, this
- * means release binaries may segfault on error.
+ * means release binaries may segfault on error->
 */
 
 using System;
@@ -70,8 +70,6 @@ namespace Embree
         public void Add(IMesh mesh)
         {
             var meshID = mesh.Add(scenePtr);
-            RTC.CheckLastError();
-
             meshes.Add(meshID, mesh);
         }
 
@@ -81,12 +79,11 @@ namespace Embree
         public void Remove(IMesh mesh)
         {
             if (!meshes.ContainsValue(mesh))
-                throw new ArgumentException("No such mesh exists");
+                throw new ArgumentException("No such mesh present");
             else
             {
                 var meshID = meshes.First(x => x.Value == mesh).Key;
                 RTC.DeleteGeometry(scenePtr, meshID);
-                RTC.CheckLastError();
                 meshes.Remove(meshID);
             }
         }
@@ -122,7 +119,7 @@ namespace Embree
         }
 
         /// <summary>
-        /// Gets the Embree scene pointer.
+        /// Gets the Embree scene pointer->
         /// </summary>
         internal IntPtr EmbreePointer { get { return scenePtr; } }
 
@@ -234,7 +231,6 @@ namespace Embree
         /// </summary>
         public void Commit()
         {
-            //foreach (var instance in reverse.Keys)
             foreach (var entry in instances)
             {
                 var instance = entry.Value;
@@ -250,8 +246,7 @@ namespace Embree
 
                 var pinned = GCHandle.Alloc(xtf, GCHandleType.Pinned); // Pin transform matrix to raw float* array
                 RTC.SetTransform(scenePtr, entry.Key, RTC.MatrixLayout.ColumnMajor, pinned.AddrOfPinnedObject());
-                pinned.Free();
-
+                pinned.Free(); // Release before checking for error
                 RTC.CheckLastError();
 
                 if (instance.Enabled)
@@ -259,13 +254,13 @@ namespace Embree
                 else
                     RTC.DisableGeometry(scenePtr, entry.Key);
 
+                RTC.CheckLastError();
+
                 if (sceneFlags.HasFlag(SceneFlags.Dynamic))
                 {
                     RTC.UpdateGeometry(scenePtr, entry.Key);
-                    RTC.CheckLastError();
+                    RTC.CheckLastError(); // static mesh?
                 }
-
-                RTC.CheckLastError();
             }
 
             RTC.Commit(scenePtr);
@@ -280,11 +275,9 @@ namespace Embree
         public void Add(Instance instance)
         {
             if (instance.Geometry.TraversalFlags != traversalFlags)
-                throw new ArgumentException("Incompatible traversal flags");
+                throw new ArgumentException("Inconsistent traversal flags");
 
             var instanceID = RTC.NewInstance(scenePtr, instance.Geometry.EmbreePointer);
-            RTC.CheckLastError();
-
             instances.Add(instanceID, instance);
         }
 
@@ -294,7 +287,7 @@ namespace Embree
         public void Delete(Instance instance)
         {
             if (!instances.ContainsValue(instance))
-                throw new ArgumentException("No such instance");
+                throw new ArgumentException("No such instance present");
             else
             {
                 var instanceID = instances.First(x => x.Value == instance).Key;
@@ -315,59 +308,87 @@ namespace Embree
         /// <summary>
         /// Performs an occlusion test against the specified ray.
         /// </summary>
-        public Boolean Occludes(Traversal traversal)
+        public unsafe Boolean Occludes(Traversal traversal)
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Single))
                 throw new InvalidOperationException("Traversal flags forbid single-ray traversal");
             #endif
 
-            return RTC.RayInterop.OcclusionTest1(scenePtr, traversal);
+            var r = RTC.RayInterop.OcclusionTest1(scenePtr, traversal);
+
+            return r->geomID == 0;
         }
 
         /// <summary>
         /// Performs an occlusion test against a packet of 4 rays.
         /// </summary>
-        public Boolean[] Occludes4(Traversal[] traversals)
+        public unsafe Boolean[] Occludes4(Traversal[] traversals)
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet4))
                 throw new InvalidOperationException("Traversal flags forbid 4-ray packet traversal");
             #endif
 
-            return RTC.RayInterop.OcclusionTest4(scenePtr, traversals);
+            var r = RTC.RayInterop.OcclusionTest4(scenePtr, traversals);
+
+            return new[]
+            {
+                r->geomID[0] == 0, r->geomID[1] == 0,
+                r->geomID[2] == 0, r->geomID[3] == 0,
+            };
         }
 
         /// <summary>
         /// Performs an occlusion test against a packet of 8 rays.
         /// </summary>
-        public Boolean[] Occludes8<T>(Traversal[] traversals)
+        public unsafe Boolean[] Occludes8<T>(Traversal[] traversals)
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet8))
                 throw new InvalidOperationException("Traversal flags forbid 8-ray packet traversal");
             #endif
 
-            return RTC.RayInterop.OcclusionTest8(scenePtr, traversals);
+            var r = RTC.RayInterop.OcclusionTest8(scenePtr, traversals);
+
+            return new[]
+            {
+                r->geomID[0] == 0, r->geomID[1] == 0,
+                r->geomID[2] == 0, r->geomID[3] == 0,
+                r->geomID[4] == 0, r->geomID[5] == 0,
+                r->geomID[6] == 0, r->geomID[7] == 0,
+            };
         }
 
         /// <summary>
         /// Performs an occlusion test against a packet of 16 rays.
         /// </summary>
-        public Boolean[] Occludes16(Traversal[] traversals)
+        public unsafe Boolean[] Occludes16(Traversal[] traversals)
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet16))
                 throw new InvalidOperationException("Traversal flags forbid 16-ray packet traversal");
             #endif
 
-            return RTC.RayInterop.OcclusionTest16(scenePtr, traversals);
+            var r = RTC.RayInterop.OcclusionTest16(scenePtr, traversals);
+
+            return new[]
+            {
+                r->geomID[ 0] == 0, r->geomID[ 1] == 0,
+                r->geomID[ 2] == 0, r->geomID[ 3] == 0,
+                r->geomID[ 4] == 0, r->geomID[ 5] == 0,
+                r->geomID[ 6] == 0, r->geomID[ 7] == 0,
+                r->geomID[ 8] == 0, r->geomID[ 9] == 0,
+                r->geomID[10] == 0, r->geomID[11] == 0,
+                r->geomID[12] == 0, r->geomID[13] == 0,
+                r->geomID[14] == 0, r->geomID[15] == 0,
+            };
         }
 
         /// <summary>
         /// Performs an intersection test against the specified ray.
         /// </summary>
-        public Intersection<Instance> Intersects(Traversal traversals)
+        public unsafe Intersection<Instance> Intersects(Traversal traversals)
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Single))
@@ -376,11 +397,11 @@ namespace Embree
 
             var r = RTC.RayInterop.Intersection1(scenePtr, traversals);
 
-            if (r.geomID == RTC.InvalidGeometryID)
+            if (r->geomID == RTC.InvalidGeometryID)
                 return Intersection<Instance>.None;
             else
-                return new Intersection<Instance>(r.primID, this[r.instID].Geometry[r.geomID], this[r.instID],
-                                                  r.tfar, r.u, r.v, r.NgX, r.NgY, r.NgZ);
+                return new Intersection<Instance>(r->primID, this[r->instID].Geometry[r->geomID], this[r->instID],
+                                                  r->tfar, r->u, r->v, r->NgX, r->NgY, r->NgZ);
         }
 
         /// <summary>
@@ -398,11 +419,11 @@ namespace Embree
 
             for (var t = 0; t < 4; ++t)
             {
-                if (r.geomID[t] == RTC.InvalidGeometryID)
+                if (r->geomID[t] == RTC.InvalidGeometryID)
                     ret[t] = Intersection<Instance>.None;
                 else
-                    ret[t] = new Intersection<Instance>(r.primID[t], this[r.instID[t]].Geometry[r.geomID[t]], this[r.instID[t]],
-                                                        r.tfar[t], r.u[t], r.v[t], r.NgX[t], r.NgY[t], r.NgZ[t]);
+                    ret[t] = new Intersection<Instance>(r->primID[t], this[r->instID[t]].Geometry[r->geomID[t]], this[r->instID[t]],
+                                                        r->tfar[t], r->u[t], r->v[t], r->NgX[t], r->NgY[t], r->NgZ[t]);
             }
 
             return ret;
@@ -423,11 +444,11 @@ namespace Embree
 
             for (var t = 0; t < 8; ++t)
             {
-                if (r.geomID[t] == RTC.InvalidGeometryID)
+                if (r->geomID[t] == RTC.InvalidGeometryID)
                     ret[t] = Intersection<Instance>.None;
                 else
-                    ret[t] = new Intersection<Instance>(r.primID[t], this[r.instID[t]].Geometry[r.geomID[t]], this[r.instID[t]],
-                                                        r.tfar[t], r.u[t], r.v[t], r.NgX[t], r.NgY[t], r.NgZ[t]);
+                    ret[t] = new Intersection<Instance>(r->primID[t], this[r->instID[t]].Geometry[r->geomID[t]], this[r->instID[t]],
+                                                        r->tfar[t], r->u[t], r->v[t], r->NgX[t], r->NgY[t], r->NgZ[t]);
             }
 
             return ret;
@@ -448,11 +469,11 @@ namespace Embree
 
             for (var t = 0; t < 16; ++t)
             {
-                if (r.geomID[t] == RTC.InvalidGeometryID)
+                if (r->geomID[t] == RTC.InvalidGeometryID)
                     ret[t] = Intersection<Instance>.None;
                 else
-                    ret[t] = new Intersection<Instance>(r.primID[t], this[r.instID[t]].Geometry[r.geomID[t]], this[r.instID[t]],
-                                                        r.tfar[t], r.u[t], r.v[t], r.NgX[t], r.NgY[t], r.NgZ[t]);
+                    ret[t] = new Intersection<Instance>(r->primID[t], this[r->instID[t]].Geometry[r->geomID[t]], this[r->instID[t]],
+                                                        r->tfar[t], r->u[t], r->v[t], r->NgX[t], r->NgY[t], r->NgZ[t]);
             }
 
             return ret;
