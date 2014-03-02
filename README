@@ -23,7 +23,8 @@ the API and how to use the wrapper in your code. It does not demonstrate all the
 features of the wrapper, however, and must primarily be used to "get a feel" for
 the wrapper and how it works. Note the sample may change considerably over time.
 
-Please decompress the sample models in Sample/Models before building the sample!
+Please decompress the sample models in Sample/Models before building the sample,
+and check out the ref.png image to see the output produced by the sample itself.
 
  ===== Features (as of Embree 2.2) ============================================
 
