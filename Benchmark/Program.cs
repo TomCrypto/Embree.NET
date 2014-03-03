@@ -269,6 +269,9 @@ namespace Benchmark
                 Console.WriteLine(""); // this is for debugging
                 Console.WriteLine("[+] " + Bits + "-bit mode.");
 
+                // Note this is similar to the original Embree benchmark program
+                Console.WriteLine("[+] Performance indicators are per-thread.");
+
                 {
                     // Benchmark parameters
                     int w = 1024, h = 1024;
