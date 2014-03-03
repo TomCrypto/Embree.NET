@@ -49,7 +49,7 @@ namespace Embree
         IEmbreePoint Origin { get; }
 
         /// <summary>
-        /// Gets the (normalized) direction of the ray.
+        /// Gets the direction of the ray.
         /// </summary>
         IEmbreeVector Direction { get; }
     }

@@ -342,7 +342,7 @@ namespace Embree
         /// <summary>
         /// Performs an occlusion test against a packet of 8 rays.
         /// </summary>
-        public unsafe Boolean[] Occludes8<T>(Traversal[] traversals)
+        public unsafe Boolean[] Occludes8(Traversal[] traversals)
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet8))

@@ -12,7 +12,7 @@
  * Note this sample isn't particularly optimized and is geared
  * towards readability rather than performance. The Embree.NET
  * library itself has rather low overhead (considering...), so
- * it's up to the host application to use it aefficiently.
+ * it's up to the host application to use it efficiently.
  * 
  * You need a processor with SSE2 support, and SSE2 support to
  * be enabled in the Embree library (probably not a problem).
