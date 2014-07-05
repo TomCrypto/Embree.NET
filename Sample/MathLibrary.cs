@@ -3,12 +3,12 @@
  * note this math library was NOT implemented for this sample, it is
  * meant to demonstrate that it is easy to convert your types to use
  * the IEmbreeVector, IEmbreeRay, etc.. interfaces.
- * 
+ *
  * In this case, the vector and point classes already have a correct
  * interface (float X, Y, Z), however because of contravariance, the
  * signatures for the Ray and Matrix classes will never be valid. To
  * remedy this, a simple wrapper can be implemented, as seen below.
- * 
+ *
  * Feel free to use this more or less complete library in your code.
 */
 
@@ -640,7 +640,7 @@ namespace Sample
         /// </summary>
         /// <remarks>
         /// For an ordinary transformation matrix, the order should be:
-        /// 
+        ///
         /// - any scaling
         /// - rotation(s)
         /// - translation

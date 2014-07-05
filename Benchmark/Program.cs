@@ -1,6 +1,6 @@
 /* A benchmark, approximately equivalent to the one distributed
  * with the Embree library, for measuring the interop overhead.
- * 
+ *
  * By default, handles only single-ray and 4-ray configurations
  * conservatively - pass e.g. "1 4 8" as command-line arguments
  * to enable more (we don't have static compilation information

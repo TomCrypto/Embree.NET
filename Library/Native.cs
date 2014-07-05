@@ -1,6 +1,6 @@
 /* Embree.NET
  * ==========
- * 
+ *
  * This file defines the RTC static class, which
  * contains the Embree native API, some helpers,
  * and the RayInterop class which stores the per
@@ -67,7 +67,7 @@ namespace Embree
         }
 
         /// <summary>
-        /// Returns the value of the per-thread error flag. 
+        /// Returns the value of the per-thread error flag.
         /// </summary>
         [DllImport(DLLName, EntryPoint="rtcGetError")]
         public static extern Error GetError();
@@ -155,7 +155,7 @@ namespace Embree
         }
 
         /// <summary>
-        /// Creates a new triangle mesh. 
+        /// Creates a new triangle mesh.
         /// </summary>
         [DllImport(DLLName, EntryPoint="rtcNewTriangleMesh")]
         #if X86

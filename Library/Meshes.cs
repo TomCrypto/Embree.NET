@@ -1,6 +1,6 @@
 /* Embree.NET
  * ==========
- * 
+ *
  * Some mesh types to use, for instance triangle
  * meshes, and so on - specific geometric shapes
  * probably do not belong here, but should exist

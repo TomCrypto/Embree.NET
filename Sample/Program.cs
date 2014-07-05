@@ -1,19 +1,19 @@
 /* Sample program for Embree.NET.
- * 
+ *
  * Here the Model class holds the instance identifier returned
  * by Embree.NET, and the Renderer keeps track of models. This
  * is possibly the simplest renderer architecture, but this is
  * just an example - because the identifier is simply a 32-bit
  * integer, you can manage it in any way you find suitable.
- * 
+ *
  * The program itself raytraces a couple models, under a point
  * light source, using direct lighting and a basic Phong BRDF.
- * 
+ *
  * Note this sample isn't particularly optimized and is geared
  * towards readability rather than performance. The Embree.NET
  * library itself has rather low overhead (considering...), so
  * it's up to the host application to use it efficiently.
- * 
+ *
  * You need a processor with SSE2 support, and SSE2 support to
  * be enabled in the Embree library (probably not a problem).
 */

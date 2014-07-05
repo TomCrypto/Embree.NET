@@ -1,6 +1,6 @@
 /* Embree.NET
  * ==========
- * 
+ *
  * A number of types and dumb containers that do
  * not perform any logic, used by the wrapper. A
  * class in this file should not depend on other

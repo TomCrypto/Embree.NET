@@ -1,6 +1,6 @@
 /* Embree.NET
  * ==========
- * 
+ *
  * The wrapper's API. Note some checking is only
  * available in debug mode, for efficiency, this
  * means release binaries may segfault on error.
