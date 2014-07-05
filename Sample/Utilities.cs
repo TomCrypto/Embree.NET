@@ -293,9 +293,9 @@ namespace Sample
                 switch (tokens.Length == 4 ? tokens[0] : null)
                 {
                     case "v":
-                        vertices.Add(new Point(float.Parse(tokens[1]),
-                                               float.Parse(tokens[2]),
-                                               float.Parse(tokens[3])));
+                        vertices.Add(new Point(float.Parse(tokens[1], CultureInfo.InvariantCulture),
+                                               float.Parse(tokens[2], CultureInfo.InvariantCulture),
+                                               float.Parse(tokens[3], CultureInfo.InvariantCulture)));
                         break;
                     case "f":
                         indices.Add(int.Parse(tokens[1]) - 1);
