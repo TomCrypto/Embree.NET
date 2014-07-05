@@ -217,11 +217,11 @@ namespace Sample
                 // Trace a packet of 4 coherent AA rays
                 var packet = scene.Intersects4(rays);
 
+                // Convert the packet to a set of usable ray-geometry intersections
+                Intersection<Model>[] hits = packet.ToIntersection<Model>(scene);
+
                 for (int t = 0; t < 4; ++t)
                 {
-					// Convert the packet to a set of usable ray-geometry intersections
-					Intersection<Model>[] hits = packet.ToIntersection<Model>(scene);
-
                     if (hits[t].HasHit)
                     {
                         color += new Vector(0.1f, 0.1f, 0.1f);
