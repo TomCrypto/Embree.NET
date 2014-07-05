@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Drawing;
 using System.Collections;
+using System.Globalization;
 using System.Drawing.Imaging;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
