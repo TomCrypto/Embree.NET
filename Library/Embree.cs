@@ -26,7 +26,7 @@ namespace Embree
         /// <remarks>
         /// Do not call this method directly.
         /// </remarks>
-        uint Add(IntPtr scene);
+        uint Add(IntPtr scene, MeshFlags flags);
 
         /// <summary>
         /// Updates the mesh data for a specific scene.
@@ -67,9 +67,9 @@ namespace Embree
         /// <summary>
         /// Adds a mesh to the geometry.
         /// </summary>
-        public void Add(IMesh mesh)
+        public void Add(IMesh mesh, MeshFlags flags = MeshFlags.Static)
         {
-            var meshID = mesh.Add(scenePtr);
+            var meshID = mesh.Add(scenePtr, flags);
             meshes.Add(meshID, mesh);
         }
 
@@ -204,7 +204,7 @@ namespace Embree
     /// <summary>
     /// Represents a collection of instanced geometries.
     /// </summary>
-    public class Scene<Instance> : IDisposable, IEnumerable<Instance> where Instance : class, IInstance
+    public unsafe class Scene<Instance> : IDisposable, IEnumerable<Instance> where Instance : class, IInstance
     {
         private TraversalFlags traversalFlags;
         private SceneFlags sceneFlags;
@@ -308,175 +308,339 @@ namespace Embree
         /// <summary>
         /// Performs an occlusion test against the specified ray.
         /// </summary>
-        public unsafe Boolean Occludes(Traversal traversal)
+        public unsafe Boolean Occludes<Ray>(Ray ray, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Single))
                 throw new InvalidOperationException("Traversal flags forbid single-ray traversal");
             #endif
 
-            var r = RTC.RayInterop.OcclusionTest1(scenePtr, traversal);
+            var o = ray.Origin;
+            var d = ray.Direction;
+            var p = RTC.RayInterop.Packet1;
 
-            return r->geomID == 0;
+            p->orgX = o.X; p->orgY = o.Y; p->orgZ = o.Z;
+            p->dirX = d.X; p->dirY = d.Y; p->dirZ = d.Z;
+
+            p->geomID = RTC.InvalidGeometryID;
+            p->primID = RTC.InvalidGeometryID;
+            p->instID = RTC.InvalidGeometryID;
+
+            p->time   = time;
+            p->tnear  = near;
+            p->tfar   = far;
+
+            RTC.Occluded1(scenePtr, p);
+
+            return p->geomID == 0;
         }
 
         /// <summary>
         /// Performs an occlusion test against a packet of 4 rays.
         /// </summary>
-        public unsafe Boolean[] Occludes4(Traversal[] traversals)
+        public unsafe Boolean[] Occludes4<Ray>(Ray[] rays, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet4))
                 throw new InvalidOperationException("Traversal flags forbid 4-ray packet traversal");
             #endif
 
-            var r = RTC.RayInterop.OcclusionTest4(scenePtr, traversals);
+            var p = RTC.RayInterop.Packet4;
+            var a = RTC.RayInterop.Activity;
+
+            for (var t = 0; t < 4; ++t)
+            {
+                if (rays[t] != null)
+                    a[t] = RTC.RayInterop.Active;
+                else
+                {
+                    a[t] = RTC.RayInterop.Inactive;
+                    continue;
+                }
+
+                var o = rays[t].Origin;
+                var d = rays[t].Direction;
+
+                p->orgX[t] = o.X; p->orgY[t] = o.Y; p->orgZ[t] = o.Z;
+                p->dirX[t] = d.X; p->dirY[t] = d.Y; p->dirZ[t] = d.Z;
+
+                p->geomID[t] = RTC.InvalidGeometryID;
+                p->primID[t] = RTC.InvalidGeometryID;
+                p->instID[t] = RTC.InvalidGeometryID;
+
+                p->time[t]  = time;
+                p->tnear[t] = near;
+                p->tfar[t]  = far;
+            }
+
+            RTC.Occluded4(a, scenePtr, p);
 
             return new[]
             {
-                r->geomID[0] == 0, r->geomID[1] == 0,
-                r->geomID[2] == 0, r->geomID[3] == 0,
+                p->geomID[0] == 0, p->geomID[1] == 0,
+                p->geomID[2] == 0, p->geomID[3] == 0,
             };
         }
 
         /// <summary>
         /// Performs an occlusion test against a packet of 8 rays.
         /// </summary>
-        public unsafe Boolean[] Occludes8(Traversal[] traversals)
+		public unsafe Boolean[] Occludes8<Ray>(Ray[] rays, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet8))
                 throw new InvalidOperationException("Traversal flags forbid 8-ray packet traversal");
             #endif
 
-            var r = RTC.RayInterop.OcclusionTest8(scenePtr, traversals);
+			var p = RTC.RayInterop.Packet8;
+			var a = RTC.RayInterop.Activity;
 
-            return new[]
-            {
-                r->geomID[0] == 0, r->geomID[1] == 0,
-                r->geomID[2] == 0, r->geomID[3] == 0,
-                r->geomID[4] == 0, r->geomID[5] == 0,
-                r->geomID[6] == 0, r->geomID[7] == 0,
-            };
+			for (var t = 0; t < 8; ++t)
+			{
+				if (rays[t] != null)
+					a[t] = RTC.RayInterop.Active;
+				else
+				{
+					a[t] = RTC.RayInterop.Inactive;
+					continue;
+				}
+
+				var o = rays[t].Origin;
+				var d = rays[t].Direction;
+
+				p->orgX[t] = o.X; p->orgY[t] = o.Y; p->orgZ[t] = o.Z;
+				p->dirX[t] = d.X; p->dirY[t] = d.Y; p->dirZ[t] = d.Z;
+
+				p->geomID[t] = RTC.InvalidGeometryID;
+				p->primID[t] = RTC.InvalidGeometryID;
+				p->instID[t] = RTC.InvalidGeometryID;
+
+				p->time[t]  = time;
+				p->tnear[t] = near;
+				p->tfar[t]  = far;
+			}
+
+			RTC.Occluded8(a, scenePtr, p);
+
+			return new[]
+			{
+				p->geomID[0] == 0, p->geomID[1] == 0,
+				p->geomID[2] == 0, p->geomID[3] == 0,
+				p->geomID[4] == 0, p->geomID[5] == 0,
+				p->geomID[6] == 0, p->geomID[7] == 0,
+			};
         }
 
         /// <summary>
         /// Performs an occlusion test against a packet of 16 rays.
         /// </summary>
-        public unsafe Boolean[] Occludes16(Traversal[] traversals)
+		public unsafe Boolean[] Occludes16<Ray>(Ray[] rays, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet16))
                 throw new InvalidOperationException("Traversal flags forbid 16-ray packet traversal");
             #endif
 
-            var r = RTC.RayInterop.OcclusionTest16(scenePtr, traversals);
+			var p = RTC.RayInterop.Packet16;
+			var a = RTC.RayInterop.Activity;
+
+			for (var t = 0; t < 16; ++t)
+			{
+				if (rays[t] != null)
+					a[t] = RTC.RayInterop.Active;
+				else
+				{
+					a[t] = RTC.RayInterop.Inactive;
+					continue;
+				}
+
+				var o = rays[t].Origin;
+				var d = rays[t].Direction;
+
+				p->orgX[t] = o.X; p->orgY[t] = o.Y; p->orgZ[t] = o.Z;
+				p->dirX[t] = d.X; p->dirY[t] = d.Y; p->dirZ[t] = d.Z;
+
+				p->geomID[t] = RTC.InvalidGeometryID;
+				p->primID[t] = RTC.InvalidGeometryID;
+				p->instID[t] = RTC.InvalidGeometryID;
+
+				p->time[t]  = time;
+				p->tnear[t] = near;
+				p->tfar[t]  = far;
+			}
+
+			RTC.Occluded16(a, scenePtr, p);
 
             return new[]
             {
-                r->geomID[ 0] == 0, r->geomID[ 1] == 0,
-                r->geomID[ 2] == 0, r->geomID[ 3] == 0,
-                r->geomID[ 4] == 0, r->geomID[ 5] == 0,
-                r->geomID[ 6] == 0, r->geomID[ 7] == 0,
-                r->geomID[ 8] == 0, r->geomID[ 9] == 0,
-                r->geomID[10] == 0, r->geomID[11] == 0,
-                r->geomID[12] == 0, r->geomID[13] == 0,
-                r->geomID[14] == 0, r->geomID[15] == 0,
+				p->geomID[ 0] == 0, p->geomID[ 1] == 0,
+				p->geomID[ 2] == 0, p->geomID[ 3] == 0,
+				p->geomID[ 4] == 0, p->geomID[ 5] == 0,
+				p->geomID[ 6] == 0, p->geomID[ 7] == 0,
+				p->geomID[ 8] == 0, p->geomID[ 9] == 0,
+				p->geomID[10] == 0, p->geomID[11] == 0,
+				p->geomID[12] == 0, p->geomID[13] == 0,
+				p->geomID[14] == 0, p->geomID[15] == 0,
             };
         }
 
         /// <summary>
         /// Performs an intersection test against the specified ray.
         /// </summary>
-        public unsafe Intersection<Instance> Intersects(Traversal traversals)
+        public unsafe RTC.RayPacket1 Intersects<Ray>(Ray ray, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Single))
                 throw new InvalidOperationException("Traversal flags forbid single-ray traversal");
             #endif
 
-            var r = RTC.RayInterop.Intersection1(scenePtr, traversals);
+            var o = ray.Origin;
+            var d = ray.Direction;
+            var p = RTC.RayInterop.Packet1;
 
-            if (r->geomID == RTC.InvalidGeometryID)
-                return Intersection<Instance>.None;
-            else
-                return new Intersection<Instance>(r->primID, this[r->instID].Geometry[r->geomID], this[r->instID],
-                                                  r->tfar, r->u, r->v, r->NgX, r->NgY, r->NgZ);
+            p->orgX = o.X; p->orgY = o.Y; p->orgZ = o.Z;
+            p->dirX = d.X; p->dirY = d.Y; p->dirZ = d.Z;
+
+            p->geomID = RTC.InvalidGeometryID;
+            p->primID = RTC.InvalidGeometryID;
+            p->instID = RTC.InvalidGeometryID;
+
+            p->time   = time;
+            p->tnear  = near;
+            p->tfar   = far;
+
+            RTC.Intersect1(scenePtr, p);
+
+            return *p;
         }
 
         /// <summary>
         /// Performs an intersection test against a packet of 4 rays.
         /// </summary>
-        public unsafe Intersection<Instance>[] Intersects4(Traversal[] traversals)
+        public unsafe RTC.RayPacket4 Intersects4<Ray>(Ray[] rays, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet4))
                 throw new InvalidOperationException("Traversal flags forbid 4-ray packet traversal");
             #endif
 
-            var r = RTC.RayInterop.Intersection4(scenePtr, traversals);
-            var ret = new Intersection<Instance>[4]; // fixed length
+            var p = RTC.RayInterop.Packet4;
+            var a = RTC.RayInterop.Activity;
 
             for (var t = 0; t < 4; ++t)
             {
-                if (r->geomID[t] == RTC.InvalidGeometryID)
-                    ret[t] = Intersection<Instance>.None;
+                if (rays[t] != null)
+                    a[t] = RTC.RayInterop.Active;
                 else
-                    ret[t] = new Intersection<Instance>(r->primID[t], this[r->instID[t]].Geometry[r->geomID[t]], this[r->instID[t]],
-                                                        r->tfar[t], r->u[t], r->v[t], r->NgX[t], r->NgY[t], r->NgZ[t]);
+                {
+                    a[t] = RTC.RayInterop.Inactive;
+                    continue;
+                }
+
+                var o = rays[t].Origin;
+                var d = rays[t].Direction;
+
+                p->orgX[t] = o.X; p->orgY[t] = o.Y; p->orgZ[t] = o.Z;
+                p->dirX[t] = d.X; p->dirY[t] = d.Y; p->dirZ[t] = d.Z;
+
+                p->geomID[t] = RTC.InvalidGeometryID;
+                p->primID[t] = RTC.InvalidGeometryID;
+                p->instID[t] = RTC.InvalidGeometryID;
+
+                p->time[t]  = time;
+                p->tnear[t] = near;
+                p->tfar[t]  = far;
             }
 
-            return ret;
+            RTC.Intersect4(a, scenePtr, p);
+
+            return *p;
         }
 
         /// <summary>
         /// Performs an intersection test against a packet of 8 rays.
         /// </summary>
-        public unsafe Intersection<Instance>[] Intersects8(Traversal[] traversals)
+		public unsafe RTC.RayPacket8 Intersects8<Ray>(Ray[] rays, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet8))
                 throw new InvalidOperationException("Traversal flags forbid 8-ray packet traversal");
             #endif
 
-            var r = RTC.RayInterop.Intersection8(scenePtr, traversals);
-            var ret = new Intersection<Instance>[8]; // fixed length
+			var p = RTC.RayInterop.Packet8;
+			var a = RTC.RayInterop.Activity;
 
-            for (var t = 0; t < 8; ++t)
-            {
-                if (r->geomID[t] == RTC.InvalidGeometryID)
-                    ret[t] = Intersection<Instance>.None;
-                else
-                    ret[t] = new Intersection<Instance>(r->primID[t], this[r->instID[t]].Geometry[r->geomID[t]], this[r->instID[t]],
-                                                        r->tfar[t], r->u[t], r->v[t], r->NgX[t], r->NgY[t], r->NgZ[t]);
-            }
+			for (var t = 0; t < 8; ++t)
+			{
+				if (rays[t] != null)
+					a[t] = RTC.RayInterop.Active;
+				else
+				{
+					a[t] = RTC.RayInterop.Inactive;
+					continue;
+				}
 
-            return ret;
+				var o = rays[t].Origin;
+				var d = rays[t].Direction;
+
+				p->orgX[t] = o.X; p->orgY[t] = o.Y; p->orgZ[t] = o.Z;
+				p->dirX[t] = d.X; p->dirY[t] = d.Y; p->dirZ[t] = d.Z;
+
+				p->geomID[t] = RTC.InvalidGeometryID;
+				p->primID[t] = RTC.InvalidGeometryID;
+				p->instID[t] = RTC.InvalidGeometryID;
+
+				p->time[t]  = time;
+				p->tnear[t] = near;
+				p->tfar[t]  = far;
+			}
+
+			RTC.Intersect8(a, scenePtr, p);
+
+			return *p;
         }
 
         /// <summary>
         /// Performs an intersection test against a packet of 16 rays.
         /// </summary>
-        public unsafe Intersection<Instance>[] Intersects16(Traversal[] traversals)
+		public unsafe RTC.RayPacket16 Intersects16<Ray>(Ray[] rays, float near = 0, float far = float.PositiveInfinity, float time = 0) where Ray : IEmbreeRay
         {
             #if DEBUG
             if (!traversalFlags.HasFlag(TraversalFlags.Packet16))
                 throw new InvalidOperationException("Traversal flags forbid 16-ray packet traversal");
             #endif
 
-            var r = RTC.RayInterop.Intersection16(scenePtr, traversals);
-            var ret = new Intersection<Instance>[16]; // fixed length
+			var p = RTC.RayInterop.Packet16;
+			var a = RTC.RayInterop.Activity;
 
-            for (var t = 0; t < 16; ++t)
-            {
-                if (r->geomID[t] == RTC.InvalidGeometryID)
-                    ret[t] = Intersection<Instance>.None;
-                else
-                    ret[t] = new Intersection<Instance>(r->primID[t], this[r->instID[t]].Geometry[r->geomID[t]], this[r->instID[t]],
-                                                        r->tfar[t], r->u[t], r->v[t], r->NgX[t], r->NgY[t], r->NgZ[t]);
-            }
+			for (var t = 0; t < 16; ++t)
+			{
+				if (rays[t] != null)
+					a[t] = RTC.RayInterop.Active;
+				else
+				{
+					a[t] = RTC.RayInterop.Inactive;
+					continue;
+				}
 
-            return ret;
+				var o = rays[t].Origin;
+				var d = rays[t].Direction;
+
+				p->orgX[t] = o.X; p->orgY[t] = o.Y; p->orgZ[t] = o.Z;
+				p->dirX[t] = d.X; p->dirY[t] = d.Y; p->dirZ[t] = d.Z;
+
+				p->geomID[t] = RTC.InvalidGeometryID;
+				p->primID[t] = RTC.InvalidGeometryID;
+				p->instID[t] = RTC.InvalidGeometryID;
+
+				p->time[t]  = time;
+				p->tnear[t] = near;
+				p->tfar[t]  = far;
+			}
+
+			RTC.Intersect16(a, scenePtr, p);
+
+			return *p;
         }
 
         #endregion

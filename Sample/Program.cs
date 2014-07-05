@@ -206,24 +206,27 @@ namespace Sample
                 float u = pixel.X * dx;
                 float v = pixel.Y * dy;
 
-                var traversals = new[]
+                var rays = new[]
                 {
-                    new Traversal(camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1)),
-                    new Traversal(camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1)),
-                    new Traversal(camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1)),
-                    new Traversal(camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1)),
+                    camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                    camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                    camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
+                    camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
                 };
 
-                // Trace a packet of 4 coherent (AA) rays
-                var hits = scene.Intersects4(traversals);
+                // Trace a packet of 4 coherent AA rays
+                var packet = scene.Intersects4(rays);
 
                 for (int t = 0; t < 4; ++t)
                 {
+					// Convert the packet to a set of usable ray-geometry intersections
+					Intersection<Model>[] hits = packet.ToIntersection<Model>(scene);
+
                     if (hits[t].HasHit)
                     {
                         color += new Vector(0.1f, 0.1f, 0.1f);
 
-                        var ray = (Ray)traversals[t].Ray;
+						var ray = rays[t];
                         var model = hits[t].Instance;
 
                         // Parse the surface normal returned and then process it manually
@@ -236,7 +239,7 @@ namespace Sample
                         var lightRay = new Ray(hitPoint + normal * Constants.Epsilon, toLight);
 
                         // Is the light source occluded? If so, no point calculating any lighting
-                        if (!scene.Occludes(new Traversal(lightRay, 0, toLight.Length())))
+                        if (!scene.Occludes(lightRay, 0, toLight.Length()))
                         {
                             // Compute the Lambertian cosine term (rendering equation)
                             float cosLight = Vector.Dot(normal, toLight.Normalize());

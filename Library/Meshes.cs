@@ -53,9 +53,9 @@ namespace Embree
                 throw new ArgumentOutOfRangeException("No triangles in mesh");
         }
 
-        public uint Add(IntPtr scenePtr)
+        public uint Add(IntPtr scenePtr, MeshFlags flags)
         {
-            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, triangleCount, vertexCount, 1);
+            var meshID = RTC.NewTriangleMesh(scenePtr, flags, triangleCount, vertexCount, 1);
             RTC.CheckLastError();
             return meshID;
         }
@@ -149,9 +149,9 @@ namespace Embree
                 throw new ArgumentOutOfRangeException("No triangles in mesh");
         }
 
-        public uint Add(IntPtr scenePtr)
+        public uint Add(IntPtr scenePtr, MeshFlags flags)
         {
-            var meshID = RTC.NewTriangleMesh(scenePtr, MeshFlags.Static, triangleCount, vertexCount, 2);
+            var meshID = RTC.NewTriangleMesh(scenePtr, flags, triangleCount, vertexCount, 2);
             RTC.CheckLastError();
             return meshID;
         }

@@ -179,118 +179,52 @@ namespace Embree
 
     #region Ray Structures
 
-    /// <summary>
-    /// Defines a ray-scene traversal.
-    /// </summary>
-    public struct Traversal
-    {
-        private readonly float time, near, far;
-        private readonly IEmbreeRay ray;
-        private readonly bool active;
-
-        /// <summary>
-        /// Gets the traversal time (between 0 and 1).
-        /// </summary>
-        public float Time { get { return time; } }
-
-        /// <summary>
-        /// Gets the near traversal bound.
-        /// </summary>
-        public float Near { get { return near; } }
-
-        /// <summary>
-        /// Gets the far traversal bound.
-        /// </summary>
-        public float Far { get { return far; } }
-
-        /// <summary>
-        /// Gets the ray to traverse the scene with.
-        /// </summary>
-        public IEmbreeRay Ray { get { return ray; } }
-
-        /// <summary>
-        /// Gets whether this traversal is active.
-        /// </summary>
-        public bool Active { get { return active; } }
-
-        /// <summary>
-        /// Creates a new traversal from a ray, near/far planes, and a traversal time.
-        /// </summary>
-        public Traversal(IEmbreeRay ray, float near = 0, float far = float.PositiveInfinity, float time = 0, bool active = true)
-        {
-            if (near < 0)
-                throw new ArgumentOutOfRangeException("Near bound must be nonnegative");
-
-            if (time < 0 || time > 1)
-                throw new ArgumentOutOfRangeException("Time must be between zero and one");
-
-            this.active = active;
-            this.time   = time;
-            this.near   = near;
-            this.far    = far;
-            this.ray    = ray;
-        }
-
-        /// <summary>
-        /// Creates a new inactive traversal (will be ignored).
-        /// </summary>
-        public static Traversal Inactive
-        {
-            get { return new Traversal(default(IEmbreeRay), 0, float.PositiveInfinity, 0, false); }
-        }
-    }
-
     public struct Intersection<T> where T : IInstance
     {
-        private readonly float tfar, u, v, nx, ny, nz;
-        private readonly IMesh geomID;
-        private readonly uint primID;
-        private readonly T instID;
-
         /// <summary>
         /// Gets the intersection distance from the ray origin.
         /// </summary>
-        public float Distance { get { return tfar; } }
+        public float Distance { get; set; }
 
         /// <summary>
         /// Gets the index of the primitive intersected (e.g. nth triangle).
         /// </summary>
-        public uint Primitive { get { return primID; } }
+        public uint Primitive { get; set; }
 
         /// <summary>
         /// Gets the identifier of the instance intersected.
         /// </summary>
-        public T Instance { get { return instID; } }
+        public T Instance { get; set; }
 
         /// <summary>
         /// Gets the identifier of the mesh intersected.
         /// </summary>
-        public IMesh Mesh { get { return geomID; } }
+        public IMesh Mesh { get; set; }
 
         /// <summary>
         /// Gets the barycentric u-coordinate of the intersection point.
         /// </summary>
-        public float U { get { return u; } }
+        public float U { get; set; }
 
         /// <summary>
         /// Gets the barycentric v-coordinate of the intersection point.
         /// </summary>
-        public float V { get { return v; } }
+        public float V { get; set; }
 
         /// <summary>
         /// Gets the x-coordinate of the raw surface normal.
         /// </summary>
-        public float NX { get { return nx; } }
+        public float NX { get; set; }
 
         /// <summary>
         /// Gets the y-coordinate of the raw surface normal.
         /// </summary>
-        public float NY { get { return ny; } }
+        public float NY { get; set; }
 
         /// <summary>
         /// Gets the z-coordinate of the raw surface normal.
         /// </summary>
-        public float NZ { get { return nz; } }
+        public float NZ { get; set; }
 
         /// <summary>
         /// Gets whether there exists a ray-scene intersection.
@@ -298,22 +232,22 @@ namespace Embree
         /// <remarks>
         /// If this is false, all other fields are undefined.
         /// </remarks>
-        public Boolean HasHit { get { return geomID != null; } }
+        public Boolean HasHit { get { return Mesh != null; } }
 
         /// <summary>
         /// Creates a new intersection.
         /// </summary>
-        public Intersection(uint primID, IMesh geomID, T instID, float tfar, float u, float v, float nx, float ny, float nz)
+        public Intersection(uint primID, IMesh geomID, T instID, float tfar, float u, float v, float nx, float ny, float nz) : this()
         {
-            this.primID = primID;
-            this.geomID = geomID;
-            this.instID = instID;
-            this.tfar   = tfar;
-            this.u      = u;
-            this.v      = v;
-            this.nx     = nx;
-            this.ny     = ny;
-            this.nz     = nz;
+            Distance  = tfar;
+            Primitive = primID;
+            Mesh      = geomID;
+            Instance  = instID;
+            U      = u;
+            V      = v;
+            NX     = nx;
+            NY     = ny;
+            NZ     = nz;
         }
 
         /// <summary>

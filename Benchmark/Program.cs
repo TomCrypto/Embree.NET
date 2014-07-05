@@ -8,8 +8,6 @@
 */
 
 // TODO implement geometry creation/refitting benchmarks
-// TODO measure performance on windows to compare PInvoke overhead
-// TODO investigate poor ray packet performance (should not be that bad)
 
 using System;
 using System.Linq;
@@ -39,6 +37,11 @@ namespace Benchmark
             this.x = x;
             this.y = y;
             this.z = z;
+        }
+
+        public static Vector operator+(Vector a, Vector b)
+        {
+            return new Vector(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
         }
 
         public static Vector Zero { get { return default(Vector); } }
@@ -108,7 +111,7 @@ namespace Benchmark
         /// <remarks>
         /// Copied verbatim from the Embree benchmark code.
         /// </remarks>
-        private static IMesh GenerateSphere(int numPhi)
+        public static IMesh GenerateSphere(int numPhi)
         {
             var numTheta = 2 * numPhi; // we tessellate the unit sphere
             var vertices = new IEmbreePoint[numTheta * (numPhi + 1)];
@@ -161,10 +164,16 @@ namespace Benchmark
             return new TriangleMesh(indices, vertices);
         }
 
-        public Sphere(SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi)
+        public Sphere(SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, MeshFlags meshFlags = MeshFlags.Static)
         {
             geometry = new Geometry(sceneFlags, traversalFlags);
-            geometry.Add(GenerateSphere(numPhi)); // not timed
+            geometry.Add(GenerateSphere(numPhi), meshFlags);
+        }
+
+        public Sphere(SceneFlags sceneFlags, TraversalFlags traversalFlags, IMesh mesh, MeshFlags meshFlags = MeshFlags.Static)
+        {
+            geometry = new Geometry(sceneFlags, traversalFlags);
+            geometry.Add(mesh, meshFlags);
         }
     }
 
@@ -192,13 +201,13 @@ namespace Benchmark
         /// <summary>
         /// Measures the time taken by an action.
         /// </summary>
-        private static void Measure(Action action, Action<Double> output)
+        private static void Measure(Action action, Func<Double, String> timer, Action<String> output)
         {
             var watch = new Stopwatch();
             watch.Start();
             action();
             watch.Stop();
-            output(watch.Elapsed.TotalSeconds);
+            output(timer(watch.Elapsed.TotalSeconds));
         }
 
         /// <summary>
@@ -279,17 +288,20 @@ namespace Benchmark
                     Console.WriteLine("[+] Benchmarking intersection queries.");
 
                     foreach (var item in Benchmarks.Intersections(SceneFlags.Static, Flags, 501, w, h))
-                        Measure(item.Item2, (t) => Console.WriteLine("    {0} = {1:N3} Mrays/s", item.Item1.PadRight(35), 1e-6 * w * h / t));
+                        Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
 
                     Console.WriteLine("[+] Benchmarking occlusion queries.");
 
                     foreach (var item in Benchmarks.Occlusions(SceneFlags.Static, Flags, 501, w, h))
-                        Measure(item.Item2, (t) => Console.WriteLine("    {0} = {1:N3} Mrays/s", item.Item1.PadRight(35), 1e-6 * w * h / t));
+                        Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
                 }
 
-                {
-                    // TODO benchmark geometry creation/refit here (in Mtris/s)
-                }
+                /*{
+                    Console.WriteLine("[+] Benchmarking geometry manipulations.");
+
+                    foreach (var item in Benchmarks.Geometries(SceneFlags.Static, Flags))
+                        Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
+                }*/
 
                 if (verbose)
                     RTC.Unregister();

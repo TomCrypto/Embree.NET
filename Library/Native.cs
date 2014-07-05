@@ -3,9 +3,8 @@
  * 
  * This file defines the RTC static class, which
  * contains the Embree native API, some helpers,
- * and the dreadful RayInterop class which tries
- * to convert back and forth from the Embree ray
- * representation as efficiently as possible.
+ * and the RayInterop class which stores the per
+ * thread (memory-aligned) packet structures.
 */
 
 using System;
@@ -249,6 +248,22 @@ namespace Embree
             [FieldOffset(72)] public uint geomID;
             [FieldOffset(76)] public uint primID;
             [FieldOffset(80)] public uint instID;
+
+			/// <summary>
+			/// Converts the raw packet into a user-friendly intersection structure.
+			/// </summary>
+			public Intersection<T> ToIntersection<T>(Scene<T> scene) where T : class, IInstance
+			{
+				if (geomID == RTC.InvalidGeometryID)
+					return Intersection<T>.None;
+				else
+				{
+					T instance = scene[instID];
+
+					return new Intersection<T>(primID, instance.Geometry[geomID], instance,
+					                           tfar, u, v, NgX, NgY, NgZ);
+				}
+			}
         }
 
         /// <summary>
@@ -278,6 +293,32 @@ namespace Embree
             [FieldOffset(240)] public fixed uint geomID[4];
             [FieldOffset(256)] public fixed uint primID[4];
             [FieldOffset(272)] public fixed uint instID[4];
+
+			/// <summary>
+			/// Converts the raw packet into an array of user-friendly intersection structures.
+			/// </summary>
+			public unsafe Intersection<T>[] ToIntersection<T>(Scene<T> scene) where T : class, IInstance
+			{
+				fixed (RayPacket4 *v = &this)
+				{
+					Intersection<T>[] hits = new Intersection<T>[4];
+
+					for (int t = 0; t < 4; ++t)
+					{
+						if (v->geomID[t] == RTC.InvalidGeometryID)
+							hits[t] = Intersection<T>.None;
+						else
+						{
+							T instance = scene[v->instID[t]];
+
+							hits [t] = new Intersection<T>(v->primID [t], instance.Geometry[v->geomID[t]], instance,
+							                             v->tfar [t], v->u [t], v->v [t], v->NgX [t], v->NgY [t], v->NgZ [t]);
+						}
+					}
+
+					return hits;
+				}
+			}
         }
 
         /// <summary>
@@ -307,6 +348,32 @@ namespace Embree
             [FieldOffset(480)] public fixed uint geomID[8];
             [FieldOffset(512)] public fixed uint primID[8];
             [FieldOffset(544)] public fixed uint instID[8];
+
+			/// <summary>
+			/// Converts the raw packet into an array of user-friendly intersection structures.
+			/// </summary>
+			public unsafe Intersection<T>[] ToIntersection<T>(Scene<T> scene) where T : class, IInstance
+			{
+				fixed (RayPacket8 *v = &this)
+				{
+					Intersection<T>[] hits = new Intersection<T>[8];
+
+					for (int t = 0; t < 8; ++t)
+					{
+						if (v->geomID[t] == RTC.InvalidGeometryID)
+							hits[t] = Intersection<T>.None;
+						else
+						{
+							T instance = scene[v->instID[t]];
+
+							hits [t] = new Intersection<T>(v->primID [t], instance.Geometry[v->geomID[t]], instance,
+							                               v->tfar [t], v->u [t], v->v [t], v->NgX [t], v->NgY [t], v->NgZ [t]);
+						}
+					}
+
+					return hits;
+				}
+			}
         }
 
         /// <summary>
@@ -336,6 +403,32 @@ namespace Embree
             [FieldOffset( 960)] public fixed uint geomID[8];
             [FieldOffset(1024)] public fixed uint primID[8];
             [FieldOffset(1088)] public fixed uint instID[8];
+
+			/// <summary>
+			/// Converts the raw packet into an array of user-friendly intersection structures.
+			/// </summary>
+			public unsafe Intersection<T>[] ToIntersection<T>(Scene<T> scene) where T : class, IInstance
+			{
+				fixed (RayPacket16 *v = &this)
+				{
+					Intersection<T>[] hits = new Intersection<T>[16];
+
+					for (int t = 0; t < 16; ++t)
+					{
+						if (v->geomID[t] == RTC.InvalidGeometryID)
+							hits[t] = Intersection<T>.None;
+						else
+						{
+							T instance = scene[v->instID[t]];
+
+							hits [t] = new Intersection<T>(v->primID [t], instance.Geometry[v->geomID[t]], instance,
+							                               v->tfar [t], v->u [t], v->v [t], v->NgX [t], v->NgY [t], v->NgZ [t]);
+						}
+					}
+
+					return hits;
+				}
+			}
         }
 
         #endregion
@@ -380,227 +473,90 @@ namespace Embree
         /// </summary>
         public static unsafe class RayInterop
         {
-            [ThreadStatic] private static RayPacket1*  rayPacket1;
-            [ThreadStatic] private static RayPacket4*  rayPacket4;
-            [ThreadStatic] private static RayPacket8*  rayPacket8;
-            [ThreadStatic] private static RayPacket16* rayPacket16;
+            [ThreadStatic] private static RayPacket1*  packet1;
+            [ThreadStatic] private static RayPacket4*  packet4;
+            [ThreadStatic] private static RayPacket8*  packet8;
+            [ThreadStatic] private static RayPacket16* packet16;
 
             [ThreadStatic] private static uint* activity;
-            private const uint Active   = 0xFFFFFFFF;
-            private const uint Inactive = 0x00000000;
+            public const uint Active   = 0xFFFFFFFF;
+            public const uint Inactive = 0x00000000;
 
-            #region Ray Structure Conversions
+            public static uint* Activity
+            {
+                get
+                {
+                    if (activity == null)
+                        activity = (uint*)Align(typeof(uint), 64);
+
+                    return activity;
+                }
+            }
+
+            public static RayPacket1* Packet1
+            {
+                get
+                {
+                    if (packet1 == null)
+                    {
+                        packet1 = (RayPacket1*)Align(typeof(RayPacket1), 16);
+                        packet1->mask = RTC.InvalidGeometryID; // not used
+                    }
+
+                    return packet1;
+                }
+            }
+
+            public static RayPacket4* Packet4
+            {
+                get
+                {
+                    if (packet4 == null)
+                    {
+                        packet4 = (RayPacket4*)Align(typeof(RayPacket4), 16);
+						for (int t = 0; t < 4; ++t) packet4->mask[t] = RTC.InvalidGeometryID;
+                    }
+
+                    return packet4;
+                }
+            }
+
+			public static RayPacket8* Packet8
+			{
+				get
+				{
+					if (packet8 == null)
+					{
+						packet8 = (RayPacket8*)Align(typeof(RayPacket8), 32);
+						for (int t = 0; t < 8; ++t) packet8->mask[t] = RTC.InvalidGeometryID;
+					}
+
+					return packet8;
+				}
+			}
+
+			public static RayPacket16* Packet16
+			{
+				get
+				{
+					if (packet16 == null)
+					{
+						packet16 = (RayPacket16*)Align(typeof(RayPacket16), 64);
+						for (int t = 0; t < 16; ++t) packet16->mask[t] = RTC.InvalidGeometryID;
+					}
+
+					return packet16;
+				}
+			}
 
             /// <summary>
             /// Allocates memory aligned to a specific boundary.
             /// </summary>
-            private static void* Align(Type type, int alignment)
+            public static void* Align(Type type, int alignment)
             {
                 byte* ptr = (byte*)Marshal.AllocHGlobal(Marshal.SizeOf(type) + alignment - 1);
                 while ((long)ptr % alignment != 0) ptr++;
                 return (void*)ptr;
-            }
-
-            private static void EncodeRayPacket1(Traversal ray)
-            {
-                #region Setup
-
-                if (rayPacket1 == null)
-                    rayPacket1 = (RayPacket1*)Align(typeof(RayPacket1), 16);
-
-                if (activity == null)
-                    activity = (uint*)Align(typeof(uint), 64);
-
-                #endregion
-
-                rayPacket1->orgX = ray.Ray.Origin.X;
-                rayPacket1->orgY = ray.Ray.Origin.Y;
-                rayPacket1->orgZ = ray.Ray.Origin.Z;
-
-                rayPacket1->dirX = ray.Ray.Direction.X;
-                rayPacket1->dirY = ray.Ray.Direction.Y;
-                rayPacket1->dirZ = ray.Ray.Direction.Z;
-
-                rayPacket1->geomID = InvalidGeometryID;
-                rayPacket1->primID = InvalidGeometryID;
-                rayPacket1->instID = InvalidGeometryID;
-                rayPacket1->mask   = InvalidGeometryID;
-
-                rayPacket1->time   = ray.Time;
-                rayPacket1->tnear  = ray.Near;
-                rayPacket1->tfar   = ray.Far;
-            }
-
-            private static void EncodeRayPacket4(Traversal[] rays)
-            {
-                #region Setup
-
-                if (rayPacket4 == null)
-                    rayPacket4 = (RayPacket4*)Align(typeof(RayPacket4), 16);
-
-                if (activity == null)
-                    activity = (uint*)Align(typeof(uint), 64);
-
-                #endregion
-
-                for (int t = 0; t < 4; ++t)
-                {
-                    *(activity + t) = (rays[t].Active) ? Active : Inactive;
-
-                    rayPacket4->geomID[t] = InvalidGeometryID;
-                    rayPacket4->primID[t] = InvalidGeometryID;
-                    rayPacket4->instID[t] = InvalidGeometryID;
-                    rayPacket4->mask[t]   = InvalidGeometryID;
-
-                    if (rays[t].Active)
-                    {
-                        rayPacket4->orgX[t] = rays[t].Ray.Origin.X;
-                        rayPacket4->orgY[t] = rays[t].Ray.Origin.Y;
-                        rayPacket4->orgZ[t] = rays[t].Ray.Origin.Z;
-
-                        rayPacket4->dirX[t] = rays[t].Ray.Direction.X;
-                        rayPacket4->dirY[t] = rays[t].Ray.Direction.Y;
-                        rayPacket4->dirZ[t] = rays[t].Ray.Direction.Z;
-
-                        rayPacket4->time[t]  = rays[t].Time;
-                        rayPacket4->tnear[t] = rays[t].Near;
-                        rayPacket4->tfar[t]  = rays[t].Far;
-                    }
-                }
-            }
-
-            private static void EncodeRayPacket8(Traversal[] rays)
-            {
-                #region Setup
-
-                if (rayPacket8 == null)
-                    rayPacket8 = (RayPacket8*)Align(typeof(RayPacket8), 32);
-
-                if (activity == null)
-                    activity = (uint*)Align(typeof(uint), 64);
-
-                #endregion
-
-                for (int t = 0; t < 8; ++t)
-                {
-                    *(activity + t) = (rays[t].Active) ? Active : Inactive;
-
-                    rayPacket8->geomID[t] = InvalidGeometryID;
-                    rayPacket8->primID[t] = InvalidGeometryID;
-                    rayPacket8->instID[t] = InvalidGeometryID;
-                    rayPacket8->mask[t]   = InvalidGeometryID;
-
-                    if (rays[t].Active)
-                    {
-                        rayPacket8->orgX[t] = rays[t].Ray.Origin.X;
-                        rayPacket8->orgY[t] = rays[t].Ray.Origin.Y;
-                        rayPacket8->orgZ[t] = rays[t].Ray.Origin.Z;
-
-                        rayPacket8->dirX[t] = rays[t].Ray.Direction.X;
-                        rayPacket8->dirY[t] = rays[t].Ray.Direction.Y;
-                        rayPacket8->dirZ[t] = rays[t].Ray.Direction.Z;
-
-                        rayPacket8->time[t]  = rays[t].Time;
-                        rayPacket8->tnear[t] = rays[t].Near;
-                        rayPacket8->tfar[t]  = rays[t].Far;
-                    }
-                }
-            }
-
-            private static void EncodeRayPacket16(Traversal[] rays)
-            {
-                #region Setup
-
-                if (rayPacket16 == null)
-                    rayPacket16 = (RayPacket16*)Align(typeof(RayPacket16), 64);
-
-                if (activity == null)
-                    activity = (uint*)Align(typeof(uint), 64);
-
-                #endregion
-
-                for (int t = 0; t < 16; ++t)
-                {
-                    *(activity + t) = (rays[t].Active) ? Active : Inactive;
-
-                    rayPacket16->geomID[t] = InvalidGeometryID;
-                    rayPacket16->primID[t] = InvalidGeometryID;
-                    rayPacket16->instID[t] = InvalidGeometryID;
-                    rayPacket16->mask[t]   = InvalidGeometryID;
-
-                    if (rays[t].Active)
-                    {
-                        rayPacket16->orgX[t] = rays[t].Ray.Origin.X;
-                        rayPacket16->orgY[t] = rays[t].Ray.Origin.Y;
-                        rayPacket16->orgZ[t] = rays[t].Ray.Origin.Z;
-
-                        rayPacket16->dirX[t] = rays[t].Ray.Direction.X;
-                        rayPacket16->dirY[t] = rays[t].Ray.Direction.Y;
-                        rayPacket16->dirZ[t] = rays[t].Ray.Direction.Z;
-
-                        rayPacket16->time[t]  = rays[t].Time;
-                        rayPacket16->tnear[t] = rays[t].Near;
-                        rayPacket16->tfar[t]  = rays[t].Far;
-                    }
-                }
-            }
-
-            #endregion
-
-            public static RayPacket1* OcclusionTest1(IntPtr scene, Traversal ray)
-            {
-                EncodeRayPacket1(ray);
-                Occluded1(scene, rayPacket1);
-                return rayPacket1;
-            }
-
-            public static RayPacket4* OcclusionTest4(IntPtr scene, Traversal[] rays)
-            {
-                EncodeRayPacket4(rays);
-                Occluded4(activity, scene, rayPacket4);
-                return rayPacket4;
-            }
-
-            public static RayPacket8* OcclusionTest8(IntPtr scene, Traversal[] rays)
-            {
-                EncodeRayPacket8(rays);
-                Occluded8(activity, scene, rayPacket8);
-                return rayPacket8;
-            }
-
-            public static RayPacket16* OcclusionTest16(IntPtr scene, Traversal[] rays)
-            {
-                EncodeRayPacket16(rays);
-                Occluded16(activity, scene, rayPacket16);
-                return rayPacket16;
-            }
-
-            public static RayPacket1* Intersection1(IntPtr scene, Traversal ray)
-            {
-                EncodeRayPacket1(ray);
-                Intersect1(scene, rayPacket1);
-                return rayPacket1;
-            }
-
-            public static RayPacket4* Intersection4(IntPtr scene, Traversal[] rays)
-            {
-                EncodeRayPacket4(rays);
-                Intersect4(activity, scene, rayPacket4);
-                return rayPacket4;
-            }
-
-            public static RayPacket8* Intersection8(IntPtr scene, Traversal[] rays)
-            {
-                EncodeRayPacket8(rays);
-                Intersect8(activity, scene, rayPacket8);
-                return rayPacket8;
-            }
-
-            public static RayPacket16* Intersection16(IntPtr scene, Traversal[] rays)
-            {
-                EncodeRayPacket16(rays);
-                Intersect16(activity, scene, rayPacket16);
-                return rayPacket16;
             }
         }
 
