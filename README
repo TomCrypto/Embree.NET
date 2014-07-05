@@ -26,6 +26,28 @@ the wrapper and how it works. Note the sample may change considerably over time.
 Please decompress the sample models in Sample/Models before building the sample,
 and check out the ref.png image to see the output produced by the sample itself.
 
+ ===== Changelog ==============================================================
+
+- July 5 2014
+
+  * improved performance by a large factor, by passing the ray type as a generic
+    type and exposing both the raw "ray packet" structure, along with a friendly
+    ray-geometry intersection structure that can be used directly
+
+- May 19 2014
+
+  * fixed a bug in the sample that prevented it running on other cultures
+    (thanks to @davepermen for this bugfix!)
+
+- March 3 2014
+
+  * new benchmark project which tests the performance of the various ray tracing
+    methods (the geometry modification benchmarks are a work in progress)
+
+- March 2 2014
+
+  * initial release
+
  ===== Features (as of Embree 2.2) ============================================
 
   [x] Geometry instancing
