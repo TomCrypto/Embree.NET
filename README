@@ -80,3 +80,23 @@ As usual, any and all contributions are welcome!
 
 The Embree library can be found at http://embree.github.io/. This product is not
 affiliated with or endorsed by Intel(R) Corporation. Refer to the LICENSE file.
+
+====== Package Nuget Release ==================================================
+
+Download Embre 2.3 https://github.com/embree/embree/releases/download/v2.3.0/embree-bin-2.3_win.zip
+
+Extract embree and place the folder next to your checkout of this repo
+
++ parent folder
+|
+-- Embree
+|
+-- embree-bin-2.3_win
+
+Update version number in Library.nuspec if desired
+
+cd Library
+
+nuget pack -properties Configuration="Release (x64)"
+
+Uplad Embree.NET.*.nupkg to nuget.org
