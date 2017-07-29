@@ -157,11 +157,11 @@ namespace Embree
         /// <summary>
         /// Creates a new triangle mesh.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcNewTriangleMesh2", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(DLLName, EntryPoint="rtcNewTriangleMesh", CallingConvention = CallingConvention.Cdecl)]
         #if X86
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps, int geomID = -1);
+        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps);
         #else
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, long numTriangles, long numVertices, long numTimeSteps, int geomID = -1);
+        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, long numTriangles, long numVertices, long numTimeSteps);
         #endif
 
 
