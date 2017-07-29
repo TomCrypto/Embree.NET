@@ -111,7 +111,7 @@ namespace Benchmark
         /// <remarks>
         /// Copied verbatim from the Embree benchmark code.
         /// </remarks>
-        public static IMesh GenerateSphere(int numPhi)
+        public static IMesh GenerateSphere(Device device, int numPhi)
         {
             var numTheta = 2 * numPhi; // we tessellate the unit sphere
             var vertices = new IEmbreePoint[numTheta * (numPhi + 1)];
@@ -161,18 +161,18 @@ namespace Benchmark
                 }
             }
 
-            return new TriangleMesh(indices, vertices);
+            return new TriangleMesh(device, indices, vertices);
         }
 
-        public Sphere(SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, MeshFlags meshFlags = MeshFlags.Static)
+        public Sphere(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, MeshFlags meshFlags = MeshFlags.Static)
         {
-            geometry = new Geometry(sceneFlags, traversalFlags);
-            geometry.Add(GenerateSphere(numPhi), meshFlags);
+            geometry = new Geometry(device, sceneFlags, traversalFlags);
+            geometry.Add(GenerateSphere(device, numPhi), meshFlags);
         }
 
-        public Sphere(SceneFlags sceneFlags, TraversalFlags traversalFlags, IMesh mesh, MeshFlags meshFlags = MeshFlags.Static)
+        public Sphere(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags, IMesh mesh, MeshFlags meshFlags = MeshFlags.Static)
         {
-            geometry = new Geometry(sceneFlags, traversalFlags);
+            geometry = new Geometry(device, sceneFlags, traversalFlags);
             geometry.Add(mesh, meshFlags);
         }
     }
@@ -215,38 +215,37 @@ namespace Benchmark
         /// </summary>
         private static void ParseCommandLineArguments(String[] args)
         {
-            if (args.Length == 0) // If no arguments, fall back to 1/4
-                Flags = TraversalFlags.Single | TraversalFlags.Packet4;
-            else
+            foreach (var arg in args)
             {
-                foreach (var arg in args)
+                int v;
+                if (int.TryParse(arg, out v))
                 {
-                    try
+                    switch (v)
                     {
-                        switch (int.Parse(arg))
-                        {
-                            case 1:
-                                Flags |= TraversalFlags.Single;
-                                break;
-                            case 4:
-                                Flags |= TraversalFlags.Packet4;
-                                break;
-                            case 8:
-                                Flags |= TraversalFlags.Packet8;
-                                break;
-                            case 16:
-                                Flags |= TraversalFlags.Packet16;
-                                break;
-                            default:
-                                throw new ArgumentException("Unknown ray packet size argument");
-                        }
-                    }
-                    catch (FormatException)
-                    {
-                        throw new ArgumentException("Failed to parse ray packet size argument");
+                        case 1:
+                            Flags |= TraversalFlags.Single;
+                            break;
+                        case 4:
+                            Flags |= TraversalFlags.Packet4;
+                            break;
+                        case 8:
+                            Flags |= TraversalFlags.Packet8;
+                            break;
+                        case 16:
+                            Flags |= TraversalFlags.Packet16;
+                            break;
+                        default:
+                            throw new ArgumentException("Unknown ray packet size argument");
                     }
                 }
+                else if (!arg.Equals("verbose"))
+                {
+                    throw new ArgumentException("Failed to parse ray packet size argument");
+                }
             }
+            if (Flags == 0) // If no arguments, fall back to 1/4/8
+                Flags = TraversalFlags.Single | TraversalFlags.Packet4 | TraversalFlags.Packet8;
+
         }
 
         #endregion
@@ -263,49 +262,52 @@ namespace Benchmark
                 if (verbose) args.Select(s => s != "verbose"); // Clean up arglist
                 ParseCommandLineArguments(args); // For selecting ray packet sizes
 
+              
                 if (verbose)
                 {
                     Console.WriteLine("Embree.NET Benchmark [VERBOSE]");
                     Console.WriteLine("==============================");
-                    RTC.Register("verbose=999"); // max verbosity?
+
                 }
                 else
                 {
                     Console.WriteLine("Embree.NET Benchmark");
                     Console.WriteLine("====================");
+
                 }
+                using(Device device  = new Device(verbose))
+                {     
 
-                Console.WriteLine(""); // this is for debugging
-                Console.WriteLine("[+] " + Bits + "-bit mode.");
+                    Console.WriteLine(""); // this is for debugging
+                    Console.WriteLine("[+] " + Bits + "-bit mode.");
 
-                // Note this is similar to the original Embree benchmark program
-                Console.WriteLine("[+] Performance indicators are per-thread.");
+                    // Note this is similar to the original Embree benchmark program
+                    Console.WriteLine("[+] Performance indicators are per-thread.");
 
-                {
-                    // Benchmark parameters
-                    int w = 1024, h = 1024;
+                    {
+                        // Benchmark parameters
+                        int w = 1024, h = 1024;
 
-                    Console.WriteLine("[+] Benchmarking intersection queries.");
+                        Console.WriteLine("[+] Benchmarking intersection queries.");
 
-                    foreach (var item in Benchmarks.Intersections(SceneFlags.Static, Flags, 501, w, h))
-                        Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
+                        foreach (var item in Benchmarks.Intersections(device, SceneFlags.Static, Flags, 501, w, h))
+                            Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
 
-                    Console.WriteLine("[+] Benchmarking occlusion queries.");
+                        Console.WriteLine("[+] Benchmarking occlusion queries.");
 
-                    foreach (var item in Benchmarks.Occlusions(SceneFlags.Static, Flags, 501, w, h))
-                        Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
+                        foreach (var item in Benchmarks.Occlusions(device, SceneFlags.Static, Flags, 501, w, h))
+                            Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
+                    }
+
+                    /*{
+                        Console.WriteLine("[+] Benchmarking geometry manipulations.");
+
+                        foreach (var item in Benchmarks.Geometries(device, SceneFlags.Static, Flags))
+                            Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
+                    }*/
+
+
                 }
-
-                /*{
-                    Console.WriteLine("[+] Benchmarking geometry manipulations.");
-
-                    foreach (var item in Benchmarks.Geometries(SceneFlags.Static, Flags))
-                        Measure(item.Item2, item.Item3, (s) => Console.WriteLine("    {0} = {1}", item.Item1.PadRight(35), s));
-                }*/
-
-                if (verbose)
-                    RTC.Unregister();
-
                 return EXIT_SUCCESS;
             }
             catch (Exception e)

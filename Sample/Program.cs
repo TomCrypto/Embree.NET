@@ -23,9 +23,21 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 
 using Embree;
+using System.Linq;
 
 namespace Sample
 {
+
+    /// <summary>
+    /// Consolidate flag definitions
+    /// Flags are used when build the scene and geometry objects
+    /// </summary>
+    public class Flags
+    {
+        public const SceneFlags SCENE = SceneFlags.Static | SceneFlags.Coherent | SceneFlags.HighQuality | SceneFlags.Robust;
+        public const TraversalFlags TRAVERSAL = TraversalFlags.Single | TraversalFlags.Packet4 | TraversalFlags.Packet8;
+    }
+
     /// <summary>
     /// The Model implements the Embree.NET IInstance interface,
     /// and as such manages a model by wrapping it with material
@@ -64,12 +76,12 @@ namespace Sample
         /// <summary>
         /// Creates a new empty model.
         /// </summary>
-        public Model(Matrix transform)
+        public Model(Device device, Matrix transform)
         {
             Enabled = true;
             this.transform = transform;
             inverseTranspose = Matrix.InverseTranspose(transform);
-            geometry = new Geometry(SceneFlags.Static | SceneFlags.HighQuality, TraversalFlags.Single | TraversalFlags.Packet4);
+            geometry = new Geometry(device, Flags.SCENE, Flags.TRAVERSAL);
         }
 
         /// <summary>
@@ -124,40 +136,38 @@ namespace Sample
         private readonly float lightIntensity;
         private readonly Point lightPosition;
         private readonly Camera camera;
-
         private readonly Scene<Model> scene;
+    
 
         /// <summary>
         /// Creates a new renderer.
         /// </summary>
-        public Renderer()
+        public Renderer(Device device)
         {
             // Create an Embree.NET scene using our Model type
-
-            scene = new Scene<Model>(SceneFlags.Static | SceneFlags.Coherent | SceneFlags.Incoherent | SceneFlags.Robust,
-                                     TraversalFlags.Single | TraversalFlags.Packet4);
+            scene = new Scene<Model>(device, Flags.SCENE, Flags.TRAVERSAL);
 
             // Load all required meshes here
 
-            meshes.Add("buddha", ObjLoader.LoadMesh("Models/buddha.obj"));
-            meshes.Add("lucy", ObjLoader.LoadMesh("Models/lucy.obj"));
-            meshes.Add("ground", ObjLoader.LoadMesh("Models/ground.obj"));
+            meshes.Add("buddha", ObjLoader.LoadMesh(device, "Models/buddha.obj"));
+            meshes.Add("lucy", ObjLoader.LoadMesh(scene.Device, "Models/lucy.obj"));
+            meshes.Add("ground", ObjLoader.LoadMesh(scene.Device, "Models/ground.obj"));
 
             // Create a few Model instances with a given modelworld matrix which we will populate later
 
-            var buddhaModel = new Model(Matrix.Combine(Matrix.Scaling(8),
+            var buddhaModel = new Model(scene.Device, Matrix.Combine(Matrix.Scaling(8),
                                                        Matrix.Rotation(-(float)Math.PI / 2, 0, 0.5f),
                                                        Matrix.Translation(new Vector(-2.5f, -1.8f, -4.5f))));
 
-            var lucyModel = new Model(Matrix.Combine(Matrix.Scaling(1.0f / 175),
+            var lucyModel = new Model(scene.Device, Matrix.Combine(Matrix.Scaling(1.0f / 175),
                                                      Matrix.Rotation(0, (float)Math.PI / 2 + 2.1f, 0),
                                                      Matrix.Translation(new Vector(-11, -1.56f, -5))));
 
-            var lucyModel2 = new Model(Matrix.Combine(Matrix.Scaling(1.0f / 600),
+            var lucyModel2 = new Model(scene.Device, Matrix.Combine(Matrix.Scaling(1.0f / 600),
                                                       Matrix.Rotation(0, (float)Math.PI / 2 - 1.8f, 0),
                                                       Matrix.Translation(new Vector(-2.5f, -3.98f, -8))));
 
-            var groundModel = new Model(Matrix.Combine(Matrix.Scaling(100),
+            var groundModel = new Model(scene.Device, Matrix.Combine(Matrix.Scaling(100),
                                                        Matrix.Translation(new Vector(0, -5, 0))));
 
             // Now place these meshes into the world with a given material
@@ -193,7 +203,7 @@ namespace Sample
         /// <summary>
         /// Renders the scene into a pixel buffer.
         /// </summary>
-        public void Render(PixelBuffer pixbuf)
+        public void Render(PixelBuffer pixbuf, TraversalFlags mode = TraversalFlags.Single)
         {
             float dx = 1.0f / pixbuf.Width, dy = 1.0f / pixbuf.Height;
             camera.AspectRatio = (float)pixbuf.Width / pixbuf.Height;
@@ -206,21 +216,52 @@ namespace Sample
                 float u = pixel.X * dx;
                 float v = pixel.Y * dy;
 
-                var rays = new[]
+                Ray[] rays = null;
+                Intersection<Model>[] hits = null;
+                if (mode == TraversalFlags.Single)
                 {
-                    camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
-                    camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
-                    camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
-                    camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
-                };
+                    rays = new[] { camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1) };
+                    var packet = scene.Intersects(rays[0]);
+                    hits = new Intersection<Model>[] { packet.ToIntersection<Model>(scene) };
+                }
+                else if (mode == TraversalFlags.Packet4)
+                {
+                    rays = new[]
+                    {
+                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
+                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1)
+                    };
+                    // Trace a packet of coherent AA rays
+                    var packet = scene.Intersects4(rays);
+                    // Convert the packet to a set of usable ray-geometry intersections
+                    hits = packet.ToIntersection<Model>(scene);
+                }
+                else if (mode == TraversalFlags.Packet8)
+                {
+                    rays = new[]
+                    {
+                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
+                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
+                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
+                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
+                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1)
+                    };
+                    // Trace a packet of coherent AA rays
+                    var packet = scene.Intersects8(rays);
+                    // Convert the packet to a set of usable ray-geometry intersections
+                    hits = packet.ToIntersection<Model>(scene);
+                }
+                else
+                {
+                    throw new Exception("Invalid mode");
+                }
 
-                // Trace a packet of 4 coherent AA rays
-                var packet = scene.Intersects4(rays);
-
-                // Convert the packet to a set of usable ray-geometry intersections
-                Intersection<Model>[] hits = packet.ToIntersection<Model>(scene);
-
-                for (int t = 0; t < 4; ++t)
+                for (int t = 0; t < hits.Length; ++t)
                 {
                     if (hits[t].HasHit)
                     {
@@ -251,9 +292,8 @@ namespace Sample
                         }
                     }
                 }
-
-                // Average the 4 per-pixel samples
-                pixbuf.SetColor(pixel, color / 4);
+                // Average the per-pixel samples
+                pixbuf.SetColor(pixel, color / rays.Length);
             });
         }
 
@@ -296,6 +336,46 @@ namespace Sample
         private const int EXIT_SUCCESS = 0;
         private const int EXIT_FAILURE = 1;
 
+
+        /// <summary>
+        /// Parses command-line arguments for traversal flags.
+        /// </summary>
+        private static TraversalFlags ParseCommandLineArguments(String[] args)
+        {
+            TraversalFlags flags = 0;
+            foreach (var arg in args)
+            {
+                int v;
+                if (int.TryParse(arg, out v))
+                {
+                    switch (v)
+                    {
+                        case 1:
+                            flags |= TraversalFlags.Single;
+                            break;
+                        case 4:
+                            flags |= TraversalFlags.Packet4;
+                            break;
+                        case 8:
+                            flags |= TraversalFlags.Packet8;
+                            break;
+                        case 16:
+                            flags |= TraversalFlags.Packet16;
+                            break;
+                        default:
+                            throw new ArgumentException("Unknown ray packet size argument");
+                    }
+                }
+                else if (!arg.Equals("verbose"))
+                {
+                    throw new ArgumentException("Failed to parse ray packet size argument");
+                }
+            }
+            if (flags == 0) // If no arguments, fall back to 1/8
+                flags = TraversalFlags.Single | TraversalFlags.Packet8;
+            return flags;
+        }
+
         /// <summary>
         /// Entry point - pass "verbose" as a command-line
         /// argument to initialize Embree in verbose mode.
@@ -304,36 +384,55 @@ namespace Sample
         {
             try
             {
-                var verbose = (args.Length == 1 && args[0].ToLower() == "verbose");
+                var verbose = (args.Select(s => s.ToLower()).Contains("verbose"));
+                var flags =  ParseCommandLineArguments(args);
 
                 if (verbose)
                 {
                     Console.WriteLine("Embree.NET Sample [VERBOSE]");
                     Console.WriteLine("===========================");
-                    RTC.Register("verbose=999"); // max verbosity?
+
                 }
                 else
                 {
                     Console.WriteLine("Embree.NET Sample");
                     Console.WriteLine("=================");
+
                 }
 
                 Console.WriteLine(""); // this is for debugging
                 Console.WriteLine("[+] " + Bits + "-bit mode.");
                 Console.WriteLine("[+] Building a test scene.");
-
-                using (var renderer = new Renderer())
+                using (Device device = new Device(verbose))
                 {
-                    var pixBuf = new PixelBuffer(1920, 1080);
-                    Console.WriteLine("[+] Now rendering.");
-                    renderer.Render(pixBuf); // benchmark?
-
-                    Console.WriteLine("[+] Saving image to 'render.png'.");
-                    pixBuf.SaveToFile("render.png"); // save to png format
+                    using (var renderer = new Renderer(device))
+                    {
+                        if (flags.HasFlag(TraversalFlags.Single))
+                        {
+                            var pixBuf = new PixelBuffer(1920, 1080);
+                            Console.WriteLine("[+] Now rendering single.");
+                            renderer.Render(pixBuf, TraversalFlags.Single); // benchmark?
+                            Console.WriteLine("[+] Saving image to 'render_single.png'.");
+                            pixBuf.SaveToFile("render_single.png"); // save to png format
+                        }
+                        if (flags.HasFlag(TraversalFlags.Packet4))
+                        {
+                            var pixBuf = new PixelBuffer(1920, 1080);
+                            Console.WriteLine("[+] Now rendering packet 4.");
+                            renderer.Render(pixBuf, TraversalFlags.Packet4); // benchmark?
+                            Console.WriteLine("[+] Saving image to 'render_packet4.png'.");
+                            pixBuf.SaveToFile("render_packet4.png"); // save to png format
+                        }
+                        if (flags.HasFlag(TraversalFlags.Packet8))
+                        {
+                            var pixBuf = new PixelBuffer(1920, 1080);
+                            Console.WriteLine("[+] Now rendering packet 8.");
+                            renderer.Render(pixBuf, TraversalFlags.Packet8); // benchmark?
+                            Console.WriteLine("[+] Saving image to 'render_packet8.png'.");
+                            pixBuf.SaveToFile("render_packet8.png"); // save to png format
+                        }
+                    }
                 }
-
-                if (verbose)
-                    RTC.Unregister();
 
                 return EXIT_SUCCESS;
             }

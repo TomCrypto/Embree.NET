@@ -151,6 +151,16 @@ namespace Embree
         /// Enable 16-ray packet traversal.
         /// </summary>
         Packet16 = 1 << 3,
+
+        /// <summary>
+        /// Unused
+        /// </summary>
+        Interpolate = (1 << 4),
+
+        /// <summary>
+        /// Unused
+        /// </summary>
+        IntersectStream = (1 << 5)
     }
 
     /// <summary>

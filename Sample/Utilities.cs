@@ -284,7 +284,7 @@ namespace Sample
         /// <summary>
         /// Loads an Embree.NET mesh from an OBJ file.
         /// </summary>
-        public static TriangleMesh LoadMesh(String path)
+        public static TriangleMesh LoadMesh(Device device, String path)
         {
             var indices  = new List<int>();
             var vertices = new List<IEmbreePoint>();
@@ -306,7 +306,7 @@ namespace Sample
                 }
             }
 
-            return new TriangleMesh(indices, vertices);
+            return new TriangleMesh(device, indices, vertices);
         }
     }
 }

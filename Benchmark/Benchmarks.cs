@@ -336,13 +336,13 @@ namespace Benchmark
 
         #endregion
 
-        private static void CreateGeometry(SceneFlags sceneFlags, TraversalFlags traversalFlags, MeshFlags meshFlags, TriangleMesh sphere, int numMeshes)
+        private static void CreateGeometry(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags, MeshFlags meshFlags, TriangleMesh sphere, int numMeshes)
         {
-            using (var scene = new Scene<Sphere>(sceneFlags, traversalFlags))
+            using (var scene = new Scene<Sphere>(device, sceneFlags, traversalFlags))
             {
                 for (var t = 0; t < numMeshes; ++t)
                 {
-                    scene.Add(new Sphere(sceneFlags, traversalFlags, sphere, meshFlags));
+                    scene.Add(new Sphere(device, sceneFlags, traversalFlags, sphere, meshFlags));
 
                     for (int v = 0; v < sphere.Vertices.Count; ++v)
                         sphere.Vertices[v] = (Vector)sphere.Vertices[v] + new Vector(1, 1, 1);
@@ -354,13 +354,13 @@ namespace Benchmark
 
         #region Benchmark Providers
 
-        public static IEnumerable<Tuple<String, Action, Func<Double, String>>> Intersections(SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, int w, int h)
+        public static IEnumerable<Tuple<String, Action, Func<Double, String>>> Intersections(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, int w, int h)
         {
             Func<Double, String> timer = (t) => String.Format("{0:N3} Mrays/s", 1e-6 * w * h / t);
 
-            using (var scene = new Scene<Sphere>(sceneFlags, traversalFlags))
+            using (var scene = new Scene<Sphere>(device, sceneFlags, traversalFlags))
             {
-                scene.Add(new Sphere(sceneFlags, traversalFlags, numPhi));
+                scene.Add(new Sphere(scene.Device, sceneFlags, traversalFlags, numPhi));
                 scene.Commit();
 
                 if (traversalFlags.HasFlag(TraversalFlags.Single))
@@ -407,13 +407,13 @@ namespace Benchmark
             }
         }
 
-        public static IEnumerable<Tuple<String, Action, Func<Double, String>>> Occlusions(SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, int w, int h)
+        public static IEnumerable<Tuple<String, Action, Func<Double, String>>> Occlusions(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags, int numPhi, int w, int h)
         {
             Func<Double, String> timer = (t) => String.Format("{0:N3} Mrays/s", 1e-6 * w * h / t);
 
-            using (var scene = new Scene<Sphere>(sceneFlags, traversalFlags))
+            using (var scene = new Scene<Sphere>(device, sceneFlags, traversalFlags))
             {
-                scene.Add(new Sphere(sceneFlags, traversalFlags, numPhi));
+                scene.Add(new Sphere(scene.Device, sceneFlags, traversalFlags, numPhi));
                 scene.Commit();
 
                 if (traversalFlags.HasFlag(TraversalFlags.Single))
@@ -460,7 +460,7 @@ namespace Benchmark
             }
         }
 
-        public static IEnumerable<Tuple<String, Action, Func<Double, String>>> Geometries(SceneFlags sceneFlags, TraversalFlags traversalFlags)
+        public static IEnumerable<Tuple<String, Action, Func<Double, String>>> Geometries(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags)
         {
             var items = new Dictionary<String, Tuple<int, int>>
             {
@@ -477,17 +477,17 @@ namespace Benchmark
 
             foreach (var item in items)
             {
-                var sphere = (TriangleMesh)Sphere.GenerateSphere(item.Value.Item1);
+                var sphere = (TriangleMesh)Sphere.GenerateSphere(device, item.Value.Item1);
                 yield return new Tuple<String, Action, Func<Double, String>>("create_static_geometry_" + item.Key,
-                                                                             () => CreateGeometry(sceneFlags, traversalFlags, MeshFlags.Static, sphere, item.Value.Item2),
+                                                                             () => CreateGeometry(device, sceneFlags, traversalFlags, MeshFlags.Static, sphere, item.Value.Item2),
                                                                              (t) => String.Format("{0:N3} Mtris/s", 1e-6 * item.Value.Item2 * sphere.Indices.Count / 3));
             }
 
             foreach (var item in items)
             {
-                var sphere = (TriangleMesh)Sphere.GenerateSphere(item.Value.Item1);
+                var sphere = (TriangleMesh)Sphere.GenerateSphere(device, item.Value.Item1);
                 yield return new Tuple<String, Action, Func<Double, String>>("create_dynamic_geometry_" + item.Key,
-                                                                             () => CreateGeometry(sceneFlags, traversalFlags, MeshFlags.Dynamic, sphere, item.Value.Item2),
+                                                                             () => CreateGeometry(device, sceneFlags, traversalFlags, MeshFlags.Dynamic, sphere, item.Value.Item2),
                                                                              (t) => String.Format("{0:N3} Mtris/s", 1e-6 * item.Value.Item2 * sphere.Indices.Count / 3));
             }
         }
