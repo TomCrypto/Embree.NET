@@ -1,20 +1,29 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>$id$</id>
-    <version>1.0.0.0</version>
+    <id>Embree.NET</id>
+    <version>1.0.0.1-alpha</version>
     <title>$title$</title>
     <authors>TomCrypto</authors>
     <owners>TomCrypto</owners>
     <projectUrl>https://github.com/TomCrypto/Embree.NET</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>$description$</description>
+    <description>C# wrapper for Embree ray trace engine</description>
     <copyright>Copyright 2017</copyright>
+    <releaseNotes>Initial release, some stability issues with 4 and 8 packet intersection</releaseNotes>
+    <references>
+      <reference file="Embree.NET.dll" />      
+    </references>
     <tags>embree ray trace raytrace</tags>
   </metadata>
   <files>
     <!-- Add a readme -->
-    <file src="..\..\embree-bin-2.3_win\lib\x64\embree.dll" target="build\x64" />
+    <file src="..\embree-2.15.0.win32.windows\bin\embree.dll" target="build\x86" />
+    <file src="..\embree-2.15.0.win32.windows\bin\tbb.dll" target="build\x86" />
+    <file src="..\embree-2.15.0.win32.windows\bin\tbbmalloc.dll" target="build\x86" />
+    <file src="..\embree-2.15.0.x64.windows\bin\embree.dll" target="build\x64" />
+    <file src="..\embree-2.15.0.x64.windows\bin\tbb.dll" target="build\x64" />
+    <file src="..\embree-2.15.0.x64.windows\bin\tbbmalloc.dll" target="build\x64" />
     <file src="Embree.NET.targets" target="build" />
   </files>
 </package>

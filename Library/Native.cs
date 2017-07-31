@@ -13,6 +13,7 @@ using System.Threading;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace Embree
 {
@@ -21,13 +22,35 @@ namespace Embree
     /// </summary>
     public static class RTC
     {
+        /// <summary>
+        /// Runs on first use of RTC reference
+        /// Finds path to native embree dlls and loads them
+        /// </summary>
+        static RTC()
+        {
+            // Detect architecture and find subdirectory with the appropriate
+            // native dlls.             
+            string fullPath = System.Reflection.Assembly.GetAssembly(typeof(RTC)).Location;
+            string assebmlyDirectory = Path.GetDirectoryName(fullPath);            
+            string architecture = IntPtr.Size == 8 ? "x64" : "x86";
+            string dllDirectory = Path.Combine(assebmlyDirectory, architecture);
+            // Temporarily change working directory and make a call to Embree native code
+            // to force the dll to load
+            string previousCurrentDirectory = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(dllDirectory);
+            using (Device device = new Device())
+            {
+            }
+            // Restore previous working directory
+            Directory.SetCurrentDirectory(previousCurrentDirectory);
+        }
         #region Interop
 
         /* Searches embree.dll, libembree.so. */
         private const String DLLName = "embree";
 
         #endregion
-
+        
         #region Error Handling
 
         /// <summary>
