@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>1.0.0.0</version>
+    <title>$title$</title>
+    <authors>TomCrypto</authors>
+    <owners>TomCrypto</owners>
+    <projectUrl>https://github.com/TomCrypto/Embree.NET</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <copyright>Copyright 2017</copyright>
+    <tags>embree ray trace raytrace</tags>
+  </metadata>
+  <files>
+    <!-- Add a readme -->
+    <file src="..\..\embree-bin-2.3_win\lib\x64\embree.dll" target="build\x64" />
+    <file src="Embree.NET.targets" target="build" />
+  </files>
+</package>
