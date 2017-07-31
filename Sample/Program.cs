@@ -372,7 +372,7 @@ namespace Sample
                 }
             }
             if (flags == 0) // If no arguments, fall back to 1/8
-                flags = TraversalFlags.Single | TraversalFlags.Packet8;
+                flags = TraversalFlags.Single | TraversalFlags.Packet4 | TraversalFlags.Packet8;
             return flags;
         }
 
@@ -399,7 +399,6 @@ namespace Sample
                     Console.WriteLine("=================");
 
                 }
-
                 Console.WriteLine(""); // this is for debugging
                 Console.WriteLine("[+] " + Bits + "-bit mode.");
                 Console.WriteLine("[+] Building a test scene.");
