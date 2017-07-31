@@ -157,13 +157,20 @@ namespace Embree
         /// <summary>
         /// Creates a new triangle mesh.
         /// </summary>
+        
         [DllImport(DLLName, EntryPoint="rtcNewTriangleMesh", CallingConvention = CallingConvention.Cdecl)]
-        #if X86
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps);
-        #else
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, long numTriangles, long numVertices, long numTimeSteps);
-        #endif
+        public static extern uint NewTriangleMesh32(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps);
+        [DllImport(DLLName, EntryPoint = "rtcNewTriangleMesh", CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint NewTriangleMesh64(IntPtr scene, MeshFlags flags, long numTriangles, long numVertices, long numTimeSteps);
 
+        public static uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return NewTriangleMesh64(scene, flags, numTriangles, numVertices, numTimeSteps);
+            }
+            return NewTriangleMesh32(scene, flags, numTriangles, numVertices, numTimeSteps);
+        }
 
         /// <summary>
         /// Maps specified buffer.
@@ -590,21 +597,37 @@ namespace Embree
         /// Creates a new scene instance.
         /// </summary>
         [DllImport(DLLName, EntryPoint= "rtcNewInstance2", CallingConvention = CallingConvention.Cdecl)]
-        #if X86
-        public static extern uint NewInstance(IntPtr scene, IntPtr source, int numTimeSteps = 1);
-        #else
-        public static extern uint NewInstance(IntPtr scene, IntPtr source, long numTimeSteps = 1);
-        #endif
+        public static extern uint NewInstance32(IntPtr scene, IntPtr source, int numTimeSteps = 1);
+        [DllImport(DLLName, EntryPoint = "rtcNewInstance2", CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint NewInstance64(IntPtr scene, IntPtr source, long numTimeSteps = 1);
+
+        public static uint NewInstance(IntPtr scene, IntPtr source, int numTimeSteps = 1)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return NewInstance64(scene, source, numTimeSteps);
+            }
+            return NewInstance32(scene, source, numTimeSteps);
+        }
+
 
         /// <summary>
         /// Sets transformation of the instance.
         /// </summary>
         [DllImport(DLLName, EntryPoint= "rtcSetTransform2", CallingConvention = CallingConvention.Cdecl)]
-        #if X86
-        public static extern void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, int timeStep = 0);
-        #else
-        public static extern void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, long timeStep = 0);
-        #endif
+        public static extern void SetTransform32(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, int timeStep = 0);
+        [DllImport(DLLName, EntryPoint = "rtcSetTransform2", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void SetTransform64(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, long timeStep = 0);
+
+        public static void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, int timeStep = 0)
+        {
+            if(IntPtr.Size == 8)
+            {
+                SetTransform64(scene, geomID, layout, transform, timeStep = 0);
+            }
+            SetTransform32(scene, geomID, layout, transform, timeStep = 0);
+        }
+
         #endregion
 
         #region Lifetime Management
