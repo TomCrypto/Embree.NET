@@ -487,7 +487,7 @@ namespace Embree
                 get
                 {
                     if (activity == null)
-                        activity = (uint*)Align(typeof(uint), 64);
+                        activity = (uint*)Align(sizeof(uint) * 16, 64);
 
                     return activity;
                 }
@@ -499,7 +499,7 @@ namespace Embree
                 {
                     if (packet1 == null)
                     {
-                        packet1 = (RayPacket1*)Align(typeof(RayPacket1), 16);
+                        packet1 = (RayPacket1*)Align(Marshal.SizeOf(typeof(RayPacket1)), 16);
                         packet1->mask = RTC.InvalidGeometryID; // not used
                     }
 
@@ -513,7 +513,7 @@ namespace Embree
                 {
                     if (packet4 == null)
                     {
-                        packet4 = (RayPacket4*)Align(typeof(RayPacket4), 16);
+                        packet4 = (RayPacket4*)Align(Marshal.SizeOf(typeof(RayPacket4)), 16);
 						for (int t = 0; t < 4; ++t) packet4->mask[t] = RTC.InvalidGeometryID;
                     }
 
@@ -527,7 +527,7 @@ namespace Embree
 				{
 					if (packet8 == null)
 					{
-						packet8 = (RayPacket8*)Align(typeof(RayPacket8), 32);
+						packet8 = (RayPacket8*)Align(Marshal.SizeOf(typeof(RayPacket8)), 32);
 						for (int t = 0; t < 8; ++t) packet8->mask[t] = RTC.InvalidGeometryID;
 					}
 
@@ -541,7 +541,7 @@ namespace Embree
 				{
 					if (packet16 == null)
 					{
-						packet16 = (RayPacket16*)Align(typeof(RayPacket16), 64);
+						packet16 = (RayPacket16*)Align(Marshal.SizeOf(typeof(RayPacket16)), 64);
 						for (int t = 0; t < 16; ++t) packet16->mask[t] = RTC.InvalidGeometryID;
 					}
 
@@ -552,9 +552,9 @@ namespace Embree
             /// <summary>
             /// Allocates memory aligned to a specific boundary.
             /// </summary>
-            public static void* Align(Type type, int alignment)
+            public static void* Align(int size, int alignment)
             {
-                byte* ptr = (byte*)Marshal.AllocHGlobal(Marshal.SizeOf(type) + alignment - 1);
+                byte* ptr = (byte*)Marshal.AllocHGlobal(size + alignment - 1);
                 while ((long)ptr % alignment != 0) ptr++;
                 return (void*)ptr;
             }
