@@ -56,7 +56,7 @@ namespace Embree
 
         public uint Add(IntPtr scenePtr, MeshFlags flags)
         {
-            var meshID = RTC.NewTriangleMesh(scenePtr, flags, triangleCount, vertexCount, 1);
+            var meshID = RTC.NewTriangleMesh(scenePtr, flags, new UIntPtr((uint)triangleCount), new UIntPtr((uint)vertexCount), new UIntPtr(1));
             device.CheckLastError();
             return meshID;
         }
@@ -151,7 +151,7 @@ namespace Embree
 
         public uint Add(IntPtr scenePtr, MeshFlags flags)
         {
-            var meshID = RTC.NewTriangleMesh(scenePtr, flags, triangleCount, vertexCount, 2);
+            var meshID = RTC.NewTriangleMesh(scenePtr, flags, new UIntPtr((uint)triangleCount), new UIntPtr((uint)vertexCount), new UIntPtr(2));
             device.CheckLastError();
             return meshID;
         }

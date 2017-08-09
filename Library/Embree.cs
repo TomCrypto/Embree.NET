@@ -301,7 +301,7 @@ namespace Embree
                 };
 
                 var pinned = GCHandle.Alloc(xtf, GCHandleType.Pinned); // Pin transform matrix to raw float* array
-                RTC.SetTransform(scenePtr, entry.Key, RTC.MatrixLayout.ColumnMajor, pinned.AddrOfPinnedObject());
+                RTC.SetTransform(scenePtr, entry.Key, RTC.MatrixLayout.ColumnMajor, pinned.AddrOfPinnedObject(), new UIntPtr(0));
                 pinned.Free(); // Release before checking for error
                 Device.CheckLastError();
 
@@ -332,8 +332,7 @@ namespace Embree
         {
             if (instance.Geometry.TraversalFlags != traversalFlags)
                 throw new ArgumentException("Inconsistent traversal flags");
-
-            var instanceID = RTC.NewInstance(scenePtr, instance.Geometry.EmbreePointer);
+            var instanceID = RTC.NewInstance(scenePtr, instance.Geometry.EmbreePointer, new UIntPtr(1));
             instances.Add(instanceID, instance);
         }
 
