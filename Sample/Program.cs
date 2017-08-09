@@ -240,23 +240,25 @@ namespace Sample
                 }
                 else if (mode == TraversalFlags.Packet8)
                 {
-                    // Sampling pattern
+                    // Sampling pattern Rotated grid 
+                    // https://en.wikipedia.org/wiki/Supersampling#Supersampling_patterns
                     // ------------
-                    // | X      X | 
-                    // |   X  X   |
-                    // |   X  X   |
-                    // | X      X |
+                    // | X   X    | 
+                    // |   X    X |
+                    // | X    X   |
+                    // |    X   X |
                     // ------------
+                    //https://www.desmos.com/calculator/l2ynkbsahy
                     rays = new[]
                     {
-                        camera.Trace(2 * (u - 0.16f * dx) - 1, 2 * (v - 0.16f * dy) - 1),
-                        camera.Trace(2 * (u + 0.16f * dx) - 1, 2 * (v - 0.16f * dy) - 1),
-                        camera.Trace(2 * (u - 0.16f * dx) - 1, 2 * (v + 0.16f * dy) - 1),
-                        camera.Trace(2 * (u + 0.16f * dx) - 1, 2 * (v + 0.16f * dy) - 1),
-                        camera.Trace(2 * (u - 0.33f * dx) - 1, 2 * (v - 0.33f * dy) - 1),
-                        camera.Trace(2 * (u + 0.33f * dx) - 1, 2 * (v - 0.33f * dy) - 1),
-                        camera.Trace(2 * (u - 0.33f * dx) - 1, 2 * (v + 0.33f * dy) - 1),
-                        camera.Trace(2 * (u + 0.33f * dx) - 1, 2 * (v + 0.33f * dy) - 1)
+                        camera.Trace(2 * (u - 0.333f * dx) - 1, 2 * (v - 0.166f * dy) - 1),
+                        camera.Trace(2 * (u - 0.166f * dx) - 1, 2 * (v - 0.333f * dy) - 1),
+                        camera.Trace(2 * (u - 0.300f * dx) - 1, 2 * (v + 0.300f * dy) - 1),
+                        camera.Trace(2 * (u - 0.100f * dx) - 1, 2 * (v + 0.100f * dy) - 1),
+                        camera.Trace(2 * (u + 0.100f * dx) - 1, 2 * (v - 0.100f * dy) - 1),
+                        camera.Trace(2 * (u + 0.300f * dx) - 1, 2 * (v - 0.300f * dy) - 1),
+                        camera.Trace(2 * (u + 0.166f * dx) - 1, 2 * (v + 0.333f * dy) - 1),
+                        camera.Trace(2 * (u + 0.333f * dx) - 1, 2 * (v + 0.166f * dy) - 1)
                     };
                     // Trace a packet of coherent AA rays
                     var packet = scene.Intersects8(rays);
