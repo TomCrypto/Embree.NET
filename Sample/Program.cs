@@ -240,16 +240,23 @@ namespace Sample
                 }
                 else if (mode == TraversalFlags.Packet8)
                 {
+                    // Sampling pattern
+                    // ------------
+                    // | X      X | 
+                    // |   X  X   |
+                    // |   X  X   |
+                    // | X      X |
+                    // ------------
                     rays = new[]
                     {
-                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
-                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
-                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
-                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
-                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
-                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v - 0.25f * dy) - 1),
-                        camera.Trace(2 * (u - 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1),
-                        camera.Trace(2 * (u + 0.25f * dx) - 1, 2 * (v + 0.25f * dy) - 1)
+                        camera.Trace(2 * (u - 0.16f * dx) - 1, 2 * (v - 0.16f * dy) - 1),
+                        camera.Trace(2 * (u + 0.16f * dx) - 1, 2 * (v - 0.16f * dy) - 1),
+                        camera.Trace(2 * (u - 0.16f * dx) - 1, 2 * (v + 0.16f * dy) - 1),
+                        camera.Trace(2 * (u + 0.16f * dx) - 1, 2 * (v + 0.16f * dy) - 1),
+                        camera.Trace(2 * (u - 0.33f * dx) - 1, 2 * (v - 0.33f * dy) - 1),
+                        camera.Trace(2 * (u + 0.33f * dx) - 1, 2 * (v - 0.33f * dy) - 1),
+                        camera.Trace(2 * (u - 0.33f * dx) - 1, 2 * (v + 0.33f * dy) - 1),
+                        camera.Trace(2 * (u + 0.33f * dx) - 1, 2 * (v + 0.33f * dy) - 1)
                     };
                     // Trace a packet of coherent AA rays
                     var packet = scene.Intersects8(rays);
