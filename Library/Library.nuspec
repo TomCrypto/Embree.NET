@@ -2,8 +2,8 @@
 <package >
   <metadata>
     <id>Embree.NET</id>
-    <version>1.0.0.1-alpha</version>
-    <title>$title$</title>
+    <version>1.0.0.1</version>
+    <title>Embree.NET</title>
     <authors>TomCrypto</authors>
     <owners>TomCrypto</owners>
     <projectUrl>https://github.com/TomCrypto/Embree.NET</projectUrl>

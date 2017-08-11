@@ -98,6 +98,6 @@ Extract to project root
 
 Update version number in Library\Library.nuspec if desired
 
-cd to project directory and run build.bat
+Using "MSBuild Command Prompt for VS2015" cd to project directory and run build.bat
 
 Upload Library\Embree.NET.*.nupkg to nuget.org
