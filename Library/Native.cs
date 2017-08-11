@@ -183,7 +183,11 @@ namespace Embree
         [DllImport(DLLName, EntryPoint = "rtcNewTriangleMesh", CallingConvention = CallingConvention.Cdecl)]
         public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, UIntPtr numTriangles, UIntPtr numVertices, UIntPtr numTimeSteps);
 
-       
+        public static uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps)
+        {
+            return NewTriangleMesh(scene, flags, new UIntPtr((uint)numTriangles), new UIntPtr((uint)numVertices), new UIntPtr((uint)numTimeSteps));
+        }
+
         /// <summary>
         /// Maps specified buffer.
         /// </summary>
@@ -610,13 +614,23 @@ namespace Embree
         /// </summary>
         [DllImport(DLLName, EntryPoint= "rtcNewInstance2", CallingConvention = CallingConvention.Cdecl)]
         public static extern uint NewInstance(IntPtr scene, IntPtr source, UIntPtr numTimeSteps);
-       
+
+        public static uint NewInstance(IntPtr scene, IntPtr source, int numTimeSteps = 1)
+        {
+            return NewInstance(scene, source, new UIntPtr((uint)numTimeSteps));
+        }
+
         /// <summary>
         /// Sets transformation of the instance.
         /// </summary>
         [DllImport(DLLName, EntryPoint = "rtcSetTransform2", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, UIntPtr timeStep);
-        
+
+        public static void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, int timeStep = 0)
+        {
+            SetTransform(scene, geomID, layout, transform, new UIntPtr((uint)timeStep));
+        }
+
         #endregion
 
         #region Lifetime Management
