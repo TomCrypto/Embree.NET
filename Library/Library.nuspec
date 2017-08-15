@@ -10,7 +10,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>C# wrapper for Embree ray trace engine</description>
     <copyright>Copyright 2017</copyright>
-    <releaseNotes>Initial release, some stability issues with 4 and 8 packet intersection</releaseNotes>
+    <releaseNotes>Initial release</releaseNotes>
     <references>
       <reference file="Embree.NET.dll" />      
     </references>
