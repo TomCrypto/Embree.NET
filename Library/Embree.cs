@@ -45,6 +45,7 @@ namespace Embree
         private TraversalFlags traversalFlags;
         private SceneFlags sceneFlags;
         private IntPtr scenePtr;
+        private readonly Device device;
 
         /// <summary>
         /// The list of meshes currently in this collection.
@@ -54,12 +55,12 @@ namespace Embree
         /// <summary>
         /// Creates a new empty geometry.
         /// </summary>
-        public Geometry(SceneFlags sceneFlags, TraversalFlags traversalFlags = TraversalFlags.Single)
+        public Geometry(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags = TraversalFlags.Single)
         {
-            RTC.Register();
+            this.device = device;
             this.sceneFlags = sceneFlags;
             this.traversalFlags = traversalFlags;
-            scenePtr = RTC.NewScene(sceneFlags, traversalFlags);
+            scenePtr = RTC.NewScene(device.DevicePtr, sceneFlags, traversalFlags);
         }
 
         #region Collection Methods
@@ -105,17 +106,17 @@ namespace Embree
             foreach (var entry in meshes)
             {
                 entry.Value.Update(entry.Key, scenePtr);
-                RTC.CheckLastError();
+                device.CheckLastError();
 
                 if (sceneFlags.HasFlag(SceneFlags.Dynamic))
                 {
                     RTC.UpdateGeometry(scenePtr, entry.Key);
-                    RTC.CheckLastError();
+                    device.CheckLastError();
                 }
             }
 
             RTC.Commit(scenePtr);
-            RTC.CheckLastError();
+            device.CheckLastError();
         }
 
         /// <summary>
@@ -172,7 +173,6 @@ namespace Embree
             if (!disposed)
             {
                 RTC.DeleteScene(scenePtr);
-                RTC.Unregister();
                 disposed = true;
             }
         }
@@ -202,6 +202,60 @@ namespace Embree
     }
 
     /// <summary>
+    /// Class represents an embree context
+    /// Scenes and geometry objects must be associated with a device context
+    /// </summary>
+    public class Device : IDisposable
+    {
+        private readonly IntPtr devicePtr;
+        public IntPtr DevicePtr { get { return devicePtr; } }
+
+        /// <summary>
+        /// Creates a new raytracing device context
+        /// </summary>
+        /// <param name="verbose">if true embree will run inverbose mode</param>
+        public Device(bool verbose = false)
+        {
+            string cfg = verbose ? "verbose=999" : null;
+            this.devicePtr = RTC.InitEmbree(cfg);
+        }
+
+        /// <summary>
+        /// Checks the last embree error for this devices and throws exceptions as needed
+        /// </summary>
+        public void CheckLastError()
+        {
+            RTC.CheckLastError(this.devicePtr);
+        }
+
+        #region IDisposable
+
+        private bool disposed;
+
+        ~Device()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                RTC.Unregister(devicePtr);
+                disposed = true;
+            }
+        }
+
+        #endregion
+    }
+
+    /// <summary>
     /// Represents a collection of instanced geometries.
     /// </summary>
     public unsafe class Scene<Instance> : IDisposable, IEnumerable<Instance> where Instance : class, IInstance
@@ -209,7 +263,9 @@ namespace Embree
         private TraversalFlags traversalFlags;
         private SceneFlags sceneFlags;
         private IntPtr scenePtr;
+        private readonly Device device;
 
+        public Device Device { get { return device; } }
         /// <summary>
         /// The list of instances currently in this collection.
         /// </summary>
@@ -218,12 +274,12 @@ namespace Embree
         /// <summary>
         /// Creates a new empty scene.
         /// </summary>
-        public Scene(SceneFlags sceneFlags, TraversalFlags traversalFlags = TraversalFlags.Single)
+        public Scene(Device device, SceneFlags sceneFlags, TraversalFlags traversalFlags = TraversalFlags.Single)
         {
-            RTC.Register();
+            this.device = device;
             this.sceneFlags = sceneFlags;
             this.traversalFlags = traversalFlags;
-            scenePtr = RTC.NewScene(sceneFlags, traversalFlags);
+            scenePtr = RTC.NewScene(device.DevicePtr, sceneFlags, traversalFlags);
         }
 
         /// <summary>
@@ -247,24 +303,24 @@ namespace Embree
                 var pinned = GCHandle.Alloc(xtf, GCHandleType.Pinned); // Pin transform matrix to raw float* array
                 RTC.SetTransform(scenePtr, entry.Key, RTC.MatrixLayout.ColumnMajor, pinned.AddrOfPinnedObject());
                 pinned.Free(); // Release before checking for error
-                RTC.CheckLastError();
+                Device.CheckLastError();
 
                 if (instance.Enabled)
                     RTC.EnableGeometry(scenePtr, entry.Key);
                 else
                     RTC.DisableGeometry(scenePtr, entry.Key);
 
-                RTC.CheckLastError();
+                Device.CheckLastError();
 
                 if (sceneFlags.HasFlag(SceneFlags.Dynamic))
                 {
                     RTC.UpdateGeometry(scenePtr, entry.Key);
-                    RTC.CheckLastError(); // static mesh?
+                    Device.CheckLastError(); // static mesh?
                 }
             }
 
             RTC.Commit(scenePtr);
-            RTC.CheckLastError();
+            Device.CheckLastError();
         }
 
         #region Collection Methods
@@ -276,7 +332,6 @@ namespace Embree
         {
             if (instance.Geometry.TraversalFlags != traversalFlags)
                 throw new ArgumentException("Inconsistent traversal flags");
-
             var instanceID = RTC.NewInstance(scenePtr, instance.Geometry.EmbreePointer);
             instances.Add(instanceID, instance);
         }
@@ -688,7 +743,6 @@ namespace Embree
             if (!disposed)
             {
                 RTC.DeleteScene(scenePtr);
-                RTC.Unregister();
                 disposed = true;
             }
         }

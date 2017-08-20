@@ -3,3 +3,5 @@
 *.obj
 bin/
 obj/
+embree-2.15.0.win32.windows/
+embree-2.15.0.x64.windows/

@@ -24,7 +24,7 @@ namespace Embree
         private readonly IList<Int32> indices;
         private readonly IList<IEmbreePoint> vertices;
         private readonly int triangleCount, vertexCount;
-
+        private readonly Device device;
         /// <summary>
         /// Gets the index buffer.
         /// </summary>
@@ -38,13 +38,14 @@ namespace Embree
         /// <summary>
         /// Creates a new mesh from index and vertex buffers.
         /// </summary>
-        public TriangleMesh(IList<Int32> indices, IList<IEmbreePoint> vertices)
+        public TriangleMesh(Device device, IList<Int32> indices, IList<IEmbreePoint> vertices)
         {
+            this.device = device;
             this.indices = indices;
             this.vertices = vertices;
             this.vertexCount = vertices.Count;
             this.triangleCount = indices.Count / 3;
-            RTC.CheckLastError();
+            device.CheckLastError();
 
             if (vertexCount == 0)
                 throw new ArgumentOutOfRangeException("No vertices in mesh");
@@ -56,7 +57,7 @@ namespace Embree
         public uint Add(IntPtr scenePtr, MeshFlags flags)
         {
             var meshID = RTC.NewTriangleMesh(scenePtr, flags, triangleCount, vertexCount, 1);
-            RTC.CheckLastError();
+            device.CheckLastError();
             return meshID;
         }
 
@@ -65,7 +66,7 @@ namespace Embree
             if (indices.Count / 3 == triangleCount)
             {
                 var indexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.IndexBuffer);
-                RTC.CheckLastError();
+                device.CheckLastError();
 
                 Marshal.Copy(indices.ToArray(), 0, indexBuffer, indices.Count);
 
@@ -77,7 +78,7 @@ namespace Embree
             if (vertices.Count == vertexCount)
             {
                 var vertexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer);
-                RTC.CheckLastError();
+                device.CheckLastError();
 
                 unsafe
                 {
@@ -110,6 +111,7 @@ namespace Embree
         private readonly IList<IEmbreePoint> vertices0;
         private readonly IList<IEmbreePoint> vertices1;
         private readonly int triangleCount, vertexCount;
+        private readonly Device device;
 
         /// <summary>
         /// Gets the index buffer.
@@ -129,13 +131,11 @@ namespace Embree
         /// <summary>
         /// Creates a new mesh from index and vertex buffers.
         /// </summary>
-        public TriangleMeshMotion(IList<Int32> indices, IList<IEmbreePoint> vertices0, IList<IEmbreePoint> vertices1)
+        public TriangleMeshMotion(Device device, IList<Int32> indices, IList<IEmbreePoint> vertices0, IList<IEmbreePoint> vertices1)
         {
             if (vertices0.Count != vertices1.Count)
                 throw new ArgumentException("Both vertex buffers must have the same length");
-
-            RTC.Register();
-
+            this.device = device;
             this.indices = indices;
             this.vertices0 = vertices0;
             this.vertices1 = vertices1;
@@ -152,7 +152,7 @@ namespace Embree
         public uint Add(IntPtr scenePtr, MeshFlags flags)
         {
             var meshID = RTC.NewTriangleMesh(scenePtr, flags, triangleCount, vertexCount, 2);
-            RTC.CheckLastError();
+            device.CheckLastError();
             return meshID;
         }
 
@@ -161,7 +161,7 @@ namespace Embree
             if (indices.Count / 3 == triangleCount)
             {
                 var indexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.IndexBuffer);
-                RTC.CheckLastError();
+                device.CheckLastError();
 
                 Marshal.Copy(indices.ToArray(), 0, indexBuffer, indices.Count);
 
@@ -173,7 +173,7 @@ namespace Embree
             if (vertices0.Count == vertexCount)
             {
                 var vertexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer0);
-                RTC.CheckLastError();
+                device.CheckLastError();
 
                 unsafe
                 {
@@ -195,7 +195,7 @@ namespace Embree
             if (vertices1.Count == vertexCount)
             {
                 var vertexBuffer = RTC.MapBuffer(scenePtr, geomID, RTC.BufferType.VertexBuffer1);
-                RTC.CheckLastError();
+                device.CheckLastError();
 
                 unsafe
                 {

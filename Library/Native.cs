@@ -13,6 +13,7 @@ using System.Threading;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace Embree
 {
@@ -21,13 +22,35 @@ namespace Embree
     /// </summary>
     public static class RTC
     {
+        /// <summary>
+        /// Runs on first use of RTC reference
+        /// Finds path to native embree dlls and loads them
+        /// </summary>
+        static RTC()
+        {
+            // Detect architecture and find subdirectory with the appropriate
+            // native dlls.             
+            string fullPath = System.Reflection.Assembly.GetAssembly(typeof(RTC)).Location;
+            string assebmlyDirectory = Path.GetDirectoryName(fullPath);            
+            string architecture = IntPtr.Size == 8 ? "x64" : "x86";
+            string dllDirectory = Path.Combine(assebmlyDirectory, architecture);
+            // Temporarily change working directory and make a call to Embree native code
+            // to force the dll to load
+            string previousCurrentDirectory = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(dllDirectory);
+            using (Device device = new Device())
+            {
+            }
+            // Restore previous working directory
+            Directory.SetCurrentDirectory(previousCurrentDirectory);
+        }
         #region Interop
 
         /* Searches embree.dll, libembree.so. */
         private const String DLLName = "embree";
 
         #endregion
-
+        
         #region Error Handling
 
         /// <summary>
@@ -69,8 +92,8 @@ namespace Embree
         /// <summary>
         /// Returns the value of the per-thread error flag.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcGetError")]
-        public static extern Error GetError();
+        [DllImport(DLLName, EntryPoint= "rtcDeviceGetError", CallingConvention = CallingConvention.Cdecl)]
+        public static extern Error GetError(IntPtr device);
 
         /// <summary>
         /// Checks the last Embree error and throws as needed.
@@ -78,9 +101,9 @@ namespace Embree
         /// <remarks>
         /// This method operates on a per-thread basis.
         /// </remarks>
-        public static void CheckLastError()
+        public static void CheckLastError(IntPtr device)
         {
-            switch (GetError())
+            switch (GetError(device))
             {
                 case Error.UnknownError:
                     throw new InvalidOperationException("An unknown error occurred in the Embree library");
@@ -102,8 +125,8 @@ namespace Embree
         /// <summary>
         /// Creates a new scene.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcNewScene")]
-        public static extern IntPtr NewScene(SceneFlags flags, TraversalFlags aFlags);
+        [DllImport(DLLName, EntryPoint= "rtcDeviceNewScene", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr NewScene(IntPtr device, SceneFlags flags, TraversalFlags aFlags);
 
         /// <summary>
         /// Commits the geometry of the scene.
@@ -112,7 +135,7 @@ namespace Embree
         /// After initializing or modifying geometries, this
         /// function has to get called before tracing rays.
         /// </remarks>
-        [DllImport(DLLName, EntryPoint="rtcCommit")]
+        [DllImport(DLLName, EntryPoint="rtcCommit", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Commit(IntPtr scene);
 
         /// <summary>
@@ -121,7 +144,7 @@ namespace Embree
         /// <remarks>
         /// All contained geometry get also destroyed.
         /// </remarks>
-        [DllImport(DLLName, EntryPoint="rtcDeleteScene")]
+        [DllImport(DLLName, EntryPoint="rtcDeleteScene", CallingConvention = CallingConvention.Cdecl)]
         public static extern void DeleteScene(IntPtr scene);
 
         #endregion
@@ -157,12 +180,13 @@ namespace Embree
         /// <summary>
         /// Creates a new triangle mesh.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcNewTriangleMesh")]
-        #if X86
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps);
-        #else
-        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, long numTriangles, long numVertices, long numTimeSteps);
-        #endif
+        [DllImport(DLLName, EntryPoint = "rtcNewTriangleMesh", CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint NewTriangleMesh(IntPtr scene, MeshFlags flags, UIntPtr numTriangles, UIntPtr numVertices, UIntPtr numTimeSteps);
+
+        public static uint NewTriangleMesh(IntPtr scene, MeshFlags flags, int numTriangles, int numVertices, int numTimeSteps)
+        {
+            return NewTriangleMesh(scene, flags, new UIntPtr((uint)numTriangles), new UIntPtr((uint)numVertices), new UIntPtr((uint)numTimeSteps));
+        }
 
         /// <summary>
         /// Maps specified buffer.
@@ -170,7 +194,7 @@ namespace Embree
         /// <remarks>
         /// This function can be used to set index and vertex buffers of geometries.
         /// </remarks>
-        [DllImport(DLLName, EntryPoint="rtcMapBuffer")]
+        [DllImport(DLLName, EntryPoint="rtcMapBuffer", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr MapBuffer(IntPtr scene, uint geomID, BufferType type);
 
         /// <summary>
@@ -180,13 +204,13 @@ namespace Embree
         /// A buffer has to be unmapped before the rtcEnable, rtcDisable,
         /// rtcUpdate, or rtcDeleteGeometry calls are executed.
         /// </remarks>
-        [DllImport(DLLName, EntryPoint="rtcUnmapBuffer")]
+        [DllImport(DLLName, EntryPoint="rtcUnmapBuffer", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UnmapBuffer(IntPtr scene, uint geomID, BufferType type);
 
         /// <summary>
         /// Enable geometry. Enabled geometry can be hit by a ray.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcEnable")]
+        [DllImport(DLLName, EntryPoint="rtcEnable", CallingConvention = CallingConvention.Cdecl)]
         public static extern void EnableGeometry(IntPtr scene, uint geomID);
 
         /// <summary>
@@ -197,7 +221,7 @@ namespace Embree
         /// geometry gives higher performance than deleting and recreating
         /// geometry.
         /// </remarks>
-        [DllImport(DLLName, EntryPoint="rtcDisable")]
+        [DllImport(DLLName, EntryPoint="rtcDisable", CallingConvention = CallingConvention.Cdecl)]
         public static extern void DisableGeometry(IntPtr scene, uint geomID);
 
         /// <summary>
@@ -208,13 +232,13 @@ namespace Embree
         /// geometry for dynamic scenes. The function does not have to get
         /// called after initializing some geometry for the first time.
         /// </remarks>
-        [DllImport(DLLName, EntryPoint="rtcUpdate")]
+        [DllImport(DLLName, EntryPoint="rtcUpdate", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateGeometry(IntPtr scene, uint geomID);
 
         /// <summary>
         /// Deletes the geometry.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcDeleteGeometry")]
+        [DllImport(DLLName, EntryPoint="rtcDeleteGeometry", CallingConvention = CallingConvention.Cdecl)]
         public static extern void DeleteGeometry(IntPtr scene, uint geomID);
 
         #endregion
@@ -435,28 +459,28 @@ namespace Embree
 
         #region Embree Intersection/Occlusion Functions
 
-        [DllImport(DLLName, EntryPoint="rtcOccluded")]
+        [DllImport(DLLName, EntryPoint="rtcOccluded", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Occluded1(IntPtr scene, RayPacket1* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcOccluded4")]
+        [DllImport(DLLName, EntryPoint="rtcOccluded4", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Occluded4(uint* valid, IntPtr scene, RayPacket4* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcOccluded8")]
+        [DllImport(DLLName, EntryPoint="rtcOccluded8", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Occluded8(uint* valid, IntPtr scene, RayPacket8* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcOccluded16")]
+        [DllImport(DLLName, EntryPoint="rtcOccluded16", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Occluded16(uint* valid, IntPtr scene, RayPacket16* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcIntersect")]
+        [DllImport(DLLName, EntryPoint="rtcIntersect", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Intersect1(IntPtr scene, RayPacket1* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcIntersect4")]
+        [DllImport(DLLName, EntryPoint="rtcIntersect4", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Intersect4(uint* valid, IntPtr scene, RayPacket4* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcIntersect8")]
+        [DllImport(DLLName, EntryPoint="rtcIntersect8", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Intersect8(uint* valid, IntPtr scene, RayPacket8* ray);
 
-        [DllImport(DLLName, EntryPoint="rtcIntersect16")]
+        [DllImport(DLLName, EntryPoint="rtcIntersect16", CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe void Intersect16(uint* valid, IntPtr scene, RayPacket16* ray);
 
         #endregion
@@ -588,14 +612,24 @@ namespace Embree
         /// <summary>
         /// Creates a new scene instance.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcNewInstance")]
-        public static extern uint NewInstance(IntPtr scene, IntPtr source);
+        [DllImport(DLLName, EntryPoint= "rtcNewInstance2", CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint NewInstance(IntPtr scene, IntPtr source, UIntPtr numTimeSteps);
+
+        public static uint NewInstance(IntPtr scene, IntPtr source, int numTimeSteps = 1)
+        {
+            return NewInstance(scene, source, new UIntPtr((uint)numTimeSteps));
+        }
 
         /// <summary>
         /// Sets transformation of the instance.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcSetTransform")]
-        public static extern void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform);
+        [DllImport(DLLName, EntryPoint = "rtcSetTransform2", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, UIntPtr timeStep);
+
+        public static void SetTransform(IntPtr scene, uint geomID, MatrixLayout layout, IntPtr transform, int timeStep = 0)
+        {
+            SetTransform(scene, geomID, layout, transform, new UIntPtr((uint)timeStep));
+        }
 
         #endregion
 
@@ -604,34 +638,36 @@ namespace Embree
         /// <summary>
         /// Initializes the Embree ray tracing core.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcInit", CharSet=CharSet.Ansi)]
-        public static extern void InitEmbree(String cfg = null);
+        [DllImport(DLLName, EntryPoint= "rtcNewDevice", CharSet=CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr InitEmbree(String cfg = null); //[MarshalAs(UnmanagedType.LPStr)]
 
         /// <summary>
         /// Shuts down Embree.
         /// </summary>
-        [DllImport(DLLName, EntryPoint="rtcExit")]
-        public static extern void FreeEmbree();
+        [DllImport(DLLName, EntryPoint= "rtcDeleteDevice", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void FreeEmbree(IntPtr device);
 
         /// <summary>
         /// Registers usage of the Embree library.
         /// </summary>
-        public static void Register(String cfg = null)
+        public static IntPtr Register(String cfg = null)
         {
+            IntPtr p = IntPtr.Zero;
             if (refCount++ == 0)
             {
-                InitEmbree(cfg);
-                CheckLastError();
+                p = InitEmbree(cfg);
+                CheckLastError(p);
             }
+            return p;
         }
 
         /// <summary>
         /// Unregisters usage of the Embree library.
         /// </summary>
-        public static void Unregister()
+        public static void Unregister(IntPtr device)
         {
             if (--refCount == 0)
-                FreeEmbree();
+                FreeEmbree(device);
         }
 
         private static int refCount = 0;
